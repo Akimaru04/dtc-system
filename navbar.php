@@ -13,6 +13,6 @@ $role = $_SESSION['role'] ?? "";
     <div>
         Welcome, <?php echo htmlspecialchars($name); ?>
         (<?php echo htmlspecialchars(ucfirst($role)); ?>)
-        <a href="/dtc_system/logout.php">Logout</a>
+        <a href="/logout.php">Logout</a>
     </div>
 </div>

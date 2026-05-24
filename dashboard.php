@@ -1,9 +1,9 @@
 <?php
 require_once(__DIR__ . '/../config/auth.php');
 checkAuth();
-requireRole('student');
+requireRole('admin');
 
 include('../includes/navbar.php');
 ?>
 
-<h1>Student Dashboard</h1>
+<h1>Admin Dashboard</h1>

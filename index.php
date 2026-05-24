@@ -5,26 +5,43 @@ ini_set('display_errors', 1);
 
 include(__DIR__ . '/config/connect.php');
 
-// redirect if already logged in
-if (isset($_SESSION['user_id'])) {
+$error = "";
 
-    if ($_SESSION['role'] === 'student') {
-        header("Location: student/dashboard.php");
-        exit();
-    }
-    elseif ($_SESSION['role'] === 'registrar') {
-        header("Location: registrar/dashboard.php");
-        exit();
-    }
-    else {
-        header("Location: admin/dashboard.php");
-        exit();
+/*
+|--------------------------------------------------------------------------
+| IF USER IS ALREADY LOGGED IN → SEND TO DASHBOARD
+|--------------------------------------------------------------------------
+| SAFE CHECK: only redirect if BOTH user_id and role exist
+*/
+if (!empty($_SESSION['user_id']) && !empty($_SESSION['role'])) {
+
+    switch ($_SESSION['role']) {
+        case 'student':
+            header("Location: /student/dashboard.php");
+            exit();
+
+        case 'registrar':
+            header("Location: /registrar/dashboard.php");
+            exit();
+
+        case 'admin':
+            header("Location: /admin/dashboard.php");
+            exit();
+
+        default:
+            // invalid role → destroy session
+            session_unset();
+            session_destroy();
+            header("Location: index.php");
+            exit();
     }
 }
 
-// login logic
-$error = "";
-
+/*
+|--------------------------------------------------------------------------
+| LOGIN PROCESS
+|--------------------------------------------------------------------------
+*/
 if (isset($_POST['login'])) {
 
     $student_number = mysqli_real_escape_string($conn, $_POST['student_number']);
@@ -39,20 +56,26 @@ if (isset($_POST['login'])) {
 
         if (password_verify($password, $user['password'])) {
 
+            // regenerate session for security (prevents session mix issues)
+            session_regenerate_id(true);
+
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
 
-            if ($user['role'] === 'student') {
-                header("Location: student/dashboard.php");
+            switch ($user['role']) {
+                case 'student':
+                    header("Location: /student/dashboard.php");
+                    exit();
+
+                case 'registrar':
+                    header("Location: /registrar/dashboard.php");
+                    exit();
+
+                default:
+                    header("Location: /admin/dashboard.php");
+                    exit();
             }
-            elseif ($user['role'] === 'registrar') {
-                header("Location: registrar/dashboard.php");
-            }
-            else {
-                header("Location: admin/dashboard.php");
-            }
-            exit();
 
         } else {
             $error = "Wrong password";
