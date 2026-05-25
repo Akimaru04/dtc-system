@@ -1,0 +1,83 @@
+body {
+    background: #f4f6f9;
+    font-family: Arial, sans-serif;
+    margin: 0;
+}
+
+/* NAVBAR */
+.navbar-custom {
+    background: #0d6efd;
+    padding: 15px 20px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* DASHBOARD CONTAINER */
+.container-custom {
+    padding: 20px;
+}
+
+/* CARDS */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.card h2 {
+    margin: 0;
+}
+
+/* BUTTONS */
+.btn-custom {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.btn-primary-custom {
+    background: #0d6efd;
+    color: white;
+}
+
+.btn-secondary-custom {
+    background: #6c757d;
+    color: white;
+}
+
+/* TABLE */
+.table-custom {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.table-custom th, .table-custom td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+/* BADGES */
+.badge {
+    padding: 5px 10px;
+    border-radius: 8px;
+    color: white;
+    font-size: 12px;
+}
+
+.badge-pending { background: #f0ad4e; }
+.badge-processing { background: #17a2b8; }
+.badge-ready { background: #28a745; }
+.badge-rejected { background: #dc3545; }
