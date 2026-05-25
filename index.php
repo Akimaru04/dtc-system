@@ -9,13 +9,13 @@ $error = "";
 
 /*
 |--------------------------------------------------------------------------
-| IF USER IS ALREADY LOGGED IN → SEND TO DASHBOARD
+| IF USER IS ALREADY LOGGED IN → REDIRECT TO DASHBOARD
 |--------------------------------------------------------------------------
-| SAFE CHECK: only redirect if BOTH user_id and role exist
 */
 if (!empty($_SESSION['user_id']) && !empty($_SESSION['role'])) {
 
     switch ($_SESSION['role']) {
+
         case 'student':
             header("Location: /student/dashboard.php");
             exit();
@@ -29,7 +29,6 @@ if (!empty($_SESSION['user_id']) && !empty($_SESSION['role'])) {
             exit();
 
         default:
-            // invalid role → destroy session
             session_unset();
             session_destroy();
             header("Location: index.php");
@@ -47,7 +46,7 @@ if (isset($_POST['login'])) {
     $student_number = mysqli_real_escape_string($conn, $_POST['student_number']);
     $password = $_POST['password'];
 
-    $query = "SELECT * FROM users WHERE student_number='$student_number' LIMIT 1";
+    $query = "SELECT * FROM users WHERE student_number = '$student_number' LIMIT 1";
     $result = mysqli_query($conn, $query);
 
     if ($result && mysqli_num_rows($result) > 0) {
@@ -56,14 +55,23 @@ if (isset($_POST['login'])) {
 
         if (password_verify($password, $user['password'])) {
 
-            // regenerate session for security (prevents session mix issues)
+            // regenerate session (security)
             session_regenerate_id(true);
 
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
+            $_SESSION['must_change_password'] = $user['must_change_password'];
 
+            // 🔐 FORCE PASSWORD CHANGE CHECK
+            if ($user['must_change_password'] == 1) {
+                header("Location: /change_password.php");
+                exit();
+            }
+
+            // ROLE-BASED REDIRECT
             switch ($user['role']) {
+
                 case 'student':
                     header("Location: /student/dashboard.php");
                     exit();
@@ -72,6 +80,7 @@ if (isset($_POST['login'])) {
                     header("Location: /registrar/dashboard.php");
                     exit();
 
+                case 'admin':
                 default:
                     header("Location: /admin/dashboard.php");
                     exit();
@@ -102,7 +111,9 @@ if (isset($_POST['login'])) {
     <button type="submit" name="login">Login</button>
 </form>
 
-<?php if (!empty($error)) echo "<p style='color:red;'>$error</p>"; ?>
+<?php if (!empty($error)): ?>
+    <p style="color:red;"><?= $error ?></p>
+<?php endif; ?>
 
 </body>
 </html>
