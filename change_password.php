@@ -1,8 +1,8 @@
 <?php
 session_start();
 
-include('../config/connect.php');
-include('../config/auth.php');
+include(__DIR__ . '/config/connect.php');
+include(__DIR__ . '/config/auth.php');
 
 checkAuth();
 
