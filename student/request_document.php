@@ -18,6 +18,9 @@ $user_id = $_SESSION['user_id'];
 
 <h2>Request Document</h2>
 
+<a href="dashboard.php"><button>Back to Dashboard</button></a>
+<br><br>
+
 <form method="POST" action="submit_request.php">
 
     <label>Document Type</label><br>
