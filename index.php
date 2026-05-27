@@ -106,7 +106,7 @@ if (isset($_POST['login'])) {
 <h2>Login</h2>
 
 <form method="POST">
-    <input type="text" name="student_number" placeholder="Student Number" required><br><br>
+    <input type="text" name="student_number" placeholder="Username" required><br><br>
     <input type="password" name="password" placeholder="Password" required><br><br>
     <button type="submit" name="login">Login</button>
 </form>
