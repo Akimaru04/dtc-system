@@ -1,5 +1,5 @@
 <?php
-include("../config/dbconnect.php");
+include("../config/connect.php");
 include("../config/auth.php");
 
 checkAuth(); // IMPORTANT: protect page
