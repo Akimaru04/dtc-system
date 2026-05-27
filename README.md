@@ -24,6 +24,6 @@ A web-based Student Management System developed for school requirements.
 
 ## ⚙️ Setup Instructions
 1. Clone the repository
-2. Import `dtc_schema.sql` into MySQL
+2. Import `announcement.sql` into MySQL
 3. Run the project using localhost (XAMPP/Laragon)
 4. Open in browser:
