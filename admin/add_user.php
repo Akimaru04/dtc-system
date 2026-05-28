@@ -2,10 +2,10 @@
 session_start();
 
 include(__DIR__ . '/../config/connect.php');
-include(__DIR__ . '/../config/auth.php');
+include(__DIR__ . '/../middleware/auth.php');
 
-checkAuth();
-requireRole('admin');
+// 🔐 middleware protection
+$user = require_role(['admin']);
 
 $message = "";
 $temp_password = "";
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_member'])) {
         $must_change_password = 1;
 
         /* --------------------------
-           INSERT USER
+           INSERT USER (SECURE)
         -------------------------- */
         $stmt = $conn->prepare("
             INSERT INTO users 
@@ -144,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_member'])) {
 
     <br><br>
 
-    <button type="submit">Add User</button>
+    <button type="submit" name="add_member">Add User</button>
 
 </form>
 

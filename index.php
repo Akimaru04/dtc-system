@@ -9,30 +9,26 @@ $error = "";
 
 /*
 |--------------------------------------------------------------------------
-| IF USER IS ALREADY LOGGED IN → REDIRECT TO DASHBOARD
+| REDIRECT IF ALREADY LOGGED IN
 |--------------------------------------------------------------------------
 */
 if (!empty($_SESSION['user_id']) && !empty($_SESSION['role'])) {
 
-    switch ($_SESSION['role']) {
+    $role = $_SESSION['role'];
 
-        case 'student':
-            header("Location: /student/dashboard.php");
-            exit();
-
-        case 'registrar':
-            header("Location: /registrar/dashboard.php");
-            exit();
-
-        case 'admin':
-            header("Location: /admin/dashboard.php");
-            exit();
-
-        default:
-            session_unset();
-            session_destroy();
-            header("Location: index.php");
-            exit();
+    if ($role === 'student') {
+        header("Location: /student/dashboard.php");
+        exit();
+    } elseif ($role === 'registrar') {
+        header("Location: /registrar/dashboard.php");
+        exit();
+    } elseif ($role === 'admin') {
+        header("Location: /admin/dashboard.php");
+        exit();
+    } else {
+        session_destroy();
+        header("Location: index.php");
+        exit();
     }
 }
 
@@ -43,48 +39,55 @@ if (!empty($_SESSION['user_id']) && !empty($_SESSION['role'])) {
 */
 if (isset($_POST['login'])) {
 
-    $student_number = mysqli_real_escape_string($conn, $_POST['student_number']);
+    $student_number = trim($_POST['student_number']);
     $password = $_POST['password'];
 
-    $query = "SELECT * FROM users WHERE student_number = '$student_number' LIMIT 1";
-    $result = mysqli_query($conn, $query);
+    // ✅ SECURE QUERY (FIXED)
+    $stmt = $conn->prepare("
+        SELECT user_id, student_number, password, role, first_name, last_name, must_change_password
+        FROM users
+        WHERE student_number = ?
+        LIMIT 1
+    ");
 
-    if ($result && mysqli_num_rows($result) > 0) {
+    $stmt->bind_param("s", $student_number);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-        $user = mysqli_fetch_assoc($result);
+    if ($result && $result->num_rows === 1) {
 
+        $user = $result->fetch_assoc();
+
+        // ✅ VERIFY PASSWORD
         if (password_verify($password, $user['password'])) {
 
-            // regenerate session (security)
             session_regenerate_id(true);
 
+            // ✅ STORE ONLY WHAT YOU NEED
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
-            $_SESSION['must_change_password'] = $user['must_change_password'];
+            $_SESSION['must_change_password'] = (int)$user['must_change_password'];
 
-            // 🔐 FORCE PASSWORD CHANGE CHECK
-            if ($user['must_change_password'] == 1) {
+            // 🔐 FORCE PASSWORD CHANGE
+            if ($_SESSION['must_change_password'] === 1) {
                 header("Location: /change_password.php");
                 exit();
             }
 
-            // ROLE-BASED REDIRECT
-            switch ($user['role']) {
-
-                case 'student':
-                    header("Location: /student/dashboard.php");
-                    exit();
-
-                case 'registrar':
-                    header("Location: /registrar/dashboard.php");
-                    exit();
-
-                case 'admin':
-                default:
-                    header("Location: /admin/dashboard.php");
-                    exit();
+            // 🔁 ROLE REDIRECT
+            if ($user['role'] === 'student') {
+                header("Location: /student/dashboard.php");
+            } elseif ($user['role'] === 'registrar') {
+                header("Location: /registrar/dashboard.php");
+            } elseif ($user['role'] === 'admin') {
+                header("Location: /admin/dashboard.php");
+            } else {
+                session_destroy();
+                header("Location: index.php");
             }
+
+            exit();
 
         } else {
             $error = "Wrong password";
@@ -106,13 +109,13 @@ if (isset($_POST['login'])) {
 <h2>Login</h2>
 
 <form method="POST">
-    <input type="text" name="student_number" placeholder="Username" required><br><br>
+    <input type="text" name="student_number" placeholder="Student Number" required><br><br>
     <input type="password" name="password" placeholder="Password" required><br><br>
     <button type="submit" name="login">Login</button>
 </form>
 
 <?php if (!empty($error)): ?>
-    <p style="color:red;"><?= $error ?></p>
+    <p style="color:red;"><?= htmlspecialchars($error) ?></p>
 <?php endif; ?>
 
 </body>

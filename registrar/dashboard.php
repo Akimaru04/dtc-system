@@ -1,14 +1,14 @@
 <?php
 session_start();
 
-require_once(__DIR__ . '/../config/auth.php');
+include('../config/connect.php');
+include('../middleware/auth.php');
 
-// 🔐 AUTH FLOW (STANDARD ORDER)
-checkAuth();
-requireRole('registrar');
-enforcePasswordChange();
+// 🔐 secure registrar-only access
+$user = require_role(['registrar']);
 
-include('../includes/navbar.php');
+// enforce password change rule
+enforce_password_change($user);
 ?>
 
 <!DOCTYPE html>
@@ -20,7 +20,7 @@ include('../includes/navbar.php');
 
 <h1>Registrar Dashboard</h1>
 
-<p>Welcome, <?= htmlspecialchars($_SESSION['name']) ?>!</p>
+<p>Welcome, <?= htmlspecialchars($user['name']) ?>!</p>
 
 <!-- REGISTRAR ACTIONS -->
 <a href="manage_request.php">

@@ -1,8 +1,11 @@
 <?php
-include("../config/connect.php");
-include("../config/auth.php");
+session_start();
 
-requireRole("registrar");
+include("../config/connect.php");
+include("../middleware/auth.php");
+
+// 🔐 secure registrar access
+$user = require_role(["registrar"]);
 
 /*
 |--------------------------------------------------------------------------
@@ -26,7 +29,6 @@ $result = mysqli_query($conn, $sql);
 
 <body>
 
-
 <div class="container-custom">
 
     <a href="dashboard.php"><button>Back to Dashboard</button></a>
@@ -34,7 +36,6 @@ $result = mysqli_query($conn, $sql);
 
     <h2>Registrar Dashboard</h2>
     <p>Manage and process document requests</p>
-
 
     <table class="table-custom">
 
@@ -50,29 +51,29 @@ $result = mysqli_query($conn, $sql);
         <?php while ($row = mysqli_fetch_assoc($result)) { ?>
 
         <tr>
-            <td><?php echo $row['request_id']; ?></td>
+            <td><?= $row['request_id']; ?></td>
 
             <td>
-                <?php echo $row['first_name'] . " " . $row['last_name']; ?>
+                <?= htmlspecialchars($row['first_name'] . " " . $row['last_name']); ?>
             </td>
 
             <td>
-                <?php echo $row['student_number']; ?>
+                <?= htmlspecialchars($row['student_number']); ?>
             </td>
 
             <td>
-                <?php echo $row['document_type']; ?>
+                <?= htmlspecialchars($row['document_type']); ?>
             </td>
 
             <td>
-                <?php echo $row['request_status']; ?>
+                <?= htmlspecialchars($row['request_status']); ?>
             </td>
 
             <td>
 
                 <form method="POST" action="update_request_status.php">
 
-                    <input type="hidden" name="request_id" value="<?php echo $row['request_id']; ?>">
+                    <input type="hidden" name="request_id" value="<?= $row['request_id']; ?>">
 
                     <select name="status" required>
                         <option value="Pending">Pending</option>

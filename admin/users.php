@@ -1,14 +1,11 @@
 <?php
-// Start session
 session_start();
 
-// Include required files
 include('../config/connect.php');
-include('../config/auth.php');
+include('../middleware/auth.php');
 
-// Auth checks
-checkAuth();
-requireRole('admin');
+// 🔐 middleware protection
+$user = require_role(['admin']);
 
 // Fetch users (latest first)
 $result = mysqli_query($conn, "SELECT * FROM users ORDER BY user_id DESC");
@@ -79,21 +76,12 @@ $result = mysqli_query($conn, "SELECT * FROM users ORDER BY user_id DESC");
             </td>
 
             <td>
-                <!-- EDIT USER -->
-                <a href="edit_user.php?id=<?= $row['user_id'] ?>">Edit</a>
-
-                |
-
-                <!-- RESET PASSWORD -->
+                <a href="edit_user.php?id=<?= $row['user_id'] ?>">Edit</a> |
                 <a href="reset_password.php?id=<?= $row['user_id'] ?>"
                    onclick="return confirm('Reset this user password?')"
                    style="color:orange;">
                    Reset
-                </a>
-
-                |
-
-                <!-- DELETE USER -->
+                </a> |
                 <a href="delete_user.php?id=<?= $row['user_id'] ?>"
                    onclick="return confirm('Are you sure?')"
                    style="color:red;">

@@ -2,11 +2,12 @@
 session_start();
 
 include('../config/connect.php');
-include('../config/auth.php');
+include('../middleware/auth.php');
 
-checkAuth();
-requireRole('admin');
+// 🔐 middleware protection
+$user = require_role(['admin']);
 
+// Fetch document types
 $result = mysqli_query($conn, "SELECT * FROM document_types ORDER BY document_type_id DESC");
 ?>
 

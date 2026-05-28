@@ -2,9 +2,10 @@
 session_start();
 
 include(__DIR__ . '/config/connect.php');
-include(__DIR__ . '/config/auth.php');
+include(__DIR__ . '/middleware/auth.php');
 
-checkAuth();
+// 🔐 require login (any role allowed)
+$user = auth_required();
 
 $user_id = $_SESSION['user_id'];
 
@@ -18,8 +19,15 @@ if (isset($_POST['update_password'])) {
     $new_password = $_POST['new_password'];
     $confirm_password = $_POST['confirm_password'];
 
+    // --------------------------
+    // BASIC VALIDATION
+    // --------------------------
     if ($new_password !== $confirm_password) {
         $message = "Passwords do not match.";
+
+    } elseif (strlen($new_password) < 6) {
+        $message = "Password must be at least 6 characters.";
+
     } else {
 
         $hashed = password_hash($new_password, PASSWORD_DEFAULT);
@@ -34,15 +42,24 @@ if (isset($_POST['update_password'])) {
         $stmt->execute();
         $stmt->close();
 
-        // 🔐 FIX SESSION FLAG
+        // 🔐 update session flag only
         $_SESSION['must_change_password'] = 0;
 
-        // 🔐 REDIRECT TO ROLE DASHBOARD
-        if ($_SESSION['role'] == 'admin') {
+        // 🔐 GET ROLE FROM DATABASE (NOT SESSION)
+        $stmt = $conn->prepare("SELECT role FROM users WHERE user_id = ?");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
+
+        // --------------------------
+        // REDIRECT BY ROLE
+        // --------------------------
+        if ($user['role'] == 'admin') {
             header("Location: /admin/dashboard.php");
-        } elseif ($_SESSION['role'] == 'student') {
+        } elseif ($user['role'] == 'student') {
             header("Location: /student/dashboard.php");
-        } elseif ($_SESSION['role'] == 'registrar') {
+        } elseif ($user['role'] == 'registrar') {
             header("Location: /registrar/dashboard.php");
         } else {
             header("Location: /index.php");
@@ -65,7 +82,7 @@ if (isset($_POST['update_password'])) {
 <p>You are required to change your password before continuing.</p>
 
 <?php if (!empty($message)): ?>
-    <p style="color:red;"><?= $message ?></p>
+    <p style="color:red;"><?= htmlspecialchars($message) ?></p>
 <?php endif; ?>
 
 <form method="POST">
