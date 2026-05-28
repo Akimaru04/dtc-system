@@ -2,10 +2,13 @@
 session_start();
 
 include('../config/connect.php');
-include('../config/auth.php');
+include('../middleware/auth.php');
 
-checkAuth();
-requireRole('admin');
+// 🔐 middleware protection
+$user = require_role(['admin']);
+
+// enforce password change rule
+enforce_password_change($user);
 
 $message = "";
 
@@ -47,12 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
 
-<!-- ONLY LOGOUT (NO NAVBAR) -->
+<!-- ONLY LOGOUT -->
 <div style="text-align:right;">
     <a href="../logout.php">Logout</a>
 </div>
 
 <h2>Add Document Type</h2>
+
+<p>Logged in as: <?= htmlspecialchars($user['name']) ?></p>
 
 <a href="document_types.php">
     <button type="button">Back</button>

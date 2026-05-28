@@ -9,6 +9,7 @@ $user = require_role(['admin']);
 
 // enforce password rule
 enforce_password_change($user);
+
 ?>
 
 <!DOCTYPE html>
@@ -17,6 +18,11 @@ enforce_password_change($user);
     <title>Admin Dashboard</title>
 </head>
 <body>
+
+<div style="text-align:right;">
+    <a href="../logout.php"><button>Logout</button></a>
+</div>
+
 
 <h1>Admin Dashboard</h1>
 
