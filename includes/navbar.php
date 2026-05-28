@@ -3,16 +3,17 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$name = $_SESSION['name'] ?? "";
-$role = $_SESSION['role'] ?? "";
+// fallback safety (prevents crashes if misused)
+$name = $user['name'] ?? 'User';
+$role = $user['role'] ?? 'Guest';
 ?>
 
 <div class="navbar-custom">
     <div><b>DTC System</b></div>
 
     <div>
-        Welcome, <?php echo htmlspecialchars($name); ?>
-        (<?php echo htmlspecialchars(ucfirst($role)); ?>)
+        Welcome, <?= htmlspecialchars($name) ?>
+        (<?= htmlspecialchars(ucfirst($role)) ?>)
         <a href="/logout.php">Logout</a>
     </div>
 </div>
