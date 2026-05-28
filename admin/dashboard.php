@@ -1,12 +1,14 @@
 <?php
 session_start();
 
-require_once(__DIR__ . '/../config/auth.php');
+include('../config/connect.php');
+include('../middleware/auth.php');
 
-// 🔐 AUTH FLOW (ORDER IS IMPORTANT)
-checkAuth();
-requireRole('admin');
-enforcePasswordChange();
+// 🔐 middleware protection
+$user = require_role(['admin']);
+
+// enforce password rule
+enforce_password_change($user);
 
 include('../includes/navbar.php');
 ?>
@@ -19,6 +21,10 @@ include('../includes/navbar.php');
 <body>
 
 <h1>Admin Dashboard</h1>
+
+<p>Welcome, <?= htmlspecialchars($user['name']) ?>!</p>
+
+<a href="../logout.php"><button>Logout</button></a>
 
 <p>Welcome to the admin dashboard! Here you can manage users, document types, and system settings.</p>
 

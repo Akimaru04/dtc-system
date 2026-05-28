@@ -10,7 +10,7 @@ define('BASE_URL', '/dtc_system/');
 
 /*
 |--------------------------------------------------------------------------
-| GET CURRENT USER (TRUTH SOURCE = DATABASE)
+| GET CURRENT USER (DATABASE IS TRUTH)
 |--------------------------------------------------------------------------
 */
 function auth_user() {
@@ -21,7 +21,7 @@ function auth_user() {
     }
 
     $stmt = $conn->prepare("
-        SELECT user_id, name, role, must_change_password
+        SELECT user_id, first_name, last_name, role, must_change_password
         FROM users
         WHERE user_id = ?
         LIMIT 1
@@ -30,7 +30,14 @@ function auth_user() {
     $stmt->bind_param("i", $_SESSION['user_id']);
     $stmt->execute();
 
-    return $stmt->get_result()->fetch_assoc();
+    $user = $stmt->get_result()->fetch_assoc();
+
+    if ($user) {
+        // build computed field
+        $user['name'] = $user['first_name'] . ' ' . $user['last_name'];
+    }
+
+    return $user;
 }
 
 /*
@@ -42,13 +49,6 @@ function auth_required() {
     $user = auth_user();
 
     if (!$user) {
-        header("Location: " . BASE_URL . "index.php");
-        exit();
-    }
-
-    // optional security check (session hijack protection light layer)
-    if (!isset($_SESSION['user_id'])) {
-        session_destroy();
         header("Location: " . BASE_URL . "index.php");
         exit();
     }

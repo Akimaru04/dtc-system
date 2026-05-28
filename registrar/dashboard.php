@@ -18,6 +18,8 @@ enforce_password_change($user);
 </head>
 <body>
 
+<a href="../logout.php"><button>Logout</button></a>
+
 <h1>Registrar Dashboard</h1>
 
 <p>Welcome, <?= htmlspecialchars($user['name']) ?>!</p>
