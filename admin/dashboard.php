@@ -9,8 +9,6 @@ $user = require_role(['admin']);
 
 // enforce password rule
 enforce_password_change($user);
-
-include('../includes/navbar.php');
 ?>
 
 <!DOCTYPE html>

@@ -18,10 +18,6 @@ $result = mysqli_query($conn, "SELECT * FROM document_types ORDER BY document_ty
 </head>
 <body>
 
-<!-- LOGOUT -->
-<div style="text-align:right;">
-    <a href="../logout.php"><button>Logout</button></a>
-</div>
 
 <h2>Manage Document Types</h2>
 

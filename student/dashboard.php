@@ -1,12 +1,14 @@
 <?php
 session_start();
 
-require_once(__DIR__ . '/../config/auth.php');
+include('../config/connect.php');
+include('../middleware/auth.php');
 
-// 🔐 AUTH CHECKS (ORDER MATTERS)
-checkAuth();
-requireRole('student');
-enforcePasswordChange();
+// 🔐 middleware protection
+$user = require_role(['student']);
+
+// enforce password rule
+enforce_password_change($user);
 
 include('../includes/navbar.php');
 ?>
@@ -20,7 +22,7 @@ include('../includes/navbar.php');
 
 <h1>Student Dashboard</h1>
 
-<p>Welcome, <?= htmlspecialchars($_SESSION['name']) ?>!</p>
+<p>Welcome, <?= htmlspecialchars($user['name']) ?>!</p>
 
 <!-- STUDENT ACTIONS -->
 <a href="request_document.php">
