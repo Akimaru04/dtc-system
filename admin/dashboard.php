@@ -24,8 +24,6 @@ include('../includes/navbar.php');
 
 <p>Welcome, <?= htmlspecialchars($user['name']) ?>!</p>
 
-<a href="../logout.php"><button>Logout</button></a>
-
 <p>Welcome to the admin dashboard! Here you can manage users, document types, and system settings.</p>
 
 <!-- ADMIN ACTIONS -->
