@@ -38,7 +38,6 @@ $result = mysqli_query($conn, "SELECT * FROM document_types ORDER BY document_ty
 <table border="1" cellpadding="10" cellspacing="0">
 
     <tr>
-        <th>ID</th>
         <th>Document Name</th>
         <th>Description</th>
         <th>Action</th>
@@ -52,7 +51,6 @@ $result = mysqli_query($conn, "SELECT * FROM document_types ORDER BY document_ty
 
     <?php while ($row = mysqli_fetch_assoc($result)) { ?>
         <tr>
-            <td><?= $row['document_type_id'] ?></td>
             <td><?= htmlspecialchars($row['document_name']) ?></td>
             <td><?= htmlspecialchars($row['description']) ?></td>
 

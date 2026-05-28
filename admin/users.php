@@ -5,7 +5,6 @@ session_start();
 // Include required files
 include('../config/connect.php');
 include('../config/auth.php');
-include('../includes/navbar.php');
 
 // Auth checks
 checkAuth();

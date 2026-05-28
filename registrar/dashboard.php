@@ -23,11 +23,11 @@ include('../includes/navbar.php');
 <p>Welcome, <?= htmlspecialchars($_SESSION['name']) ?>!</p>
 
 <!-- REGISTRAR ACTIONS -->
-<a href="manage_requests.php">
+<a href="manage_request.php">
     <button>Manage Requests</button>
 </a>
 
-<a href="update_request.php">
+<a href="update_request_status.php">
     <button>Update Requests</button>
 </a>
 

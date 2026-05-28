@@ -26,12 +26,15 @@ $result = mysqli_query($conn, $sql);
 
 <body>
 
-<?php include("../includes/navbar.php"); ?>
 
 <div class="container-custom">
 
+    <a href="dashboard.php"><button>Back to Dashboard</button></a>
+    <br><br>
+
     <h2>Registrar Dashboard</h2>
     <p>Manage and process document requests</p>
+
 
     <table class="table-custom">
 
