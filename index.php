@@ -106,7 +106,7 @@ if (isset($_POST['login'])) {
 </head>
 <body>
 
-<h2>Login</h2>
+<h2>DTC Login</h2>
 
 <form method="POST">
     <input type="text" name="student_number" placeholder="Username" required><br><br>
