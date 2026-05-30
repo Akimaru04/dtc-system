@@ -1,11 +1,12 @@
 <?php
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 include_once(__DIR__ . '/../middleware/auth.php');
 
-$user = auth_user(); // always fetch fresh user safely
+$user = auth_user();
 
 $name = $user['name'] ?? 'User';
 $role = $user['role'] ?? 'Guest';
@@ -13,7 +14,7 @@ $role = $user['role'] ?? 'Guest';
 $flash = get_flash();
 ?>
 
-<!-- FLASH MESSAGE (GLOBAL UI FEEDBACK) -->
+<!-- FLASH MESSAGE -->
 <?php if ($flash): ?>
     <div class="alert <?= htmlspecialchars($flash['type']) ?>">
         <?= htmlspecialchars($flash['message']) ?>
@@ -22,12 +23,10 @@ $flash = get_flash();
 
 <div class="navbar-custom">
 
-    <!-- LEFT -->
     <div class="nav-left">
         <b>DTC System</b>
     </div>
 
-    <!-- RIGHT -->
     <div class="nav-right">
 
         <span class="user-info">
@@ -35,7 +34,7 @@ $flash = get_flash();
             (<?= htmlspecialchars(ucfirst($role)) ?>)
         </span>
 
-        <a href="<?= BASE_URL ?>logout.php" class="logout-btn">
+        <a href="../logout.php" class="logout-btn">
             Logout
         </a>
 

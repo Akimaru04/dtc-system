@@ -6,11 +6,16 @@ if (session_status() === PHP_SESSION_NONE) {
 
 include(__DIR__ . '/../config/connect.php');
 
-define('BASE_URL', '/dtc_system/');
+/*
+|--------------------------------------------------------------------------
+| BASE URL
+|--------------------------------------------------------------------------
+*/
+define('BASE_URL', '/dtc-system-main/');
 
 /*
 |--------------------------------------------------------------------------
-| GET CURRENT USER (DATABASE IS SOURCE OF TRUTH)
+| GET CURRENT USER
 |--------------------------------------------------------------------------
 */
 function auth_user() {
@@ -21,12 +26,7 @@ function auth_user() {
     }
 
     $stmt = $conn->prepare("
-        SELECT 
-            user_id,
-            first_name,
-            last_name,
-            role,
-            must_change_password
+        SELECT user_id, first_name, last_name, role, must_change_password
         FROM users
         WHERE user_id = ?
         LIMIT 1
@@ -63,13 +63,13 @@ function auth_required() {
 
 /*
 |--------------------------------------------------------------------------
-| REQUIRE ROLE(S)
+| REQUIRE ROLE
 |--------------------------------------------------------------------------
 */
 function require_role($roles = []) {
     $user = auth_required();
 
-    if (!in_array($user['role'], (array)$roles)) {
+    if (!in_array($user['role'], (array)$roles, true)) {
         session_destroy();
         header("Location: " . BASE_URL . "index.php");
         exit();
@@ -92,25 +92,9 @@ function enforce_password_change($user) {
 
 /*
 |--------------------------------------------------------------------------
-| SELF ACTION PROTECTION (NEW SECURITY LAYER)
+| FLASH MESSAGE HELPERS
 |--------------------------------------------------------------------------
 */
-function is_self_action($target_id) {
-    if (empty($_SESSION['user_id'])) return false;
-
-    return (int)$_SESSION['user_id'] === (int)$target_id;
-}
-
-/*
-|--------------------------------------------------------------------------
-| SAFE REDIRECT HELPER (optional but useful)
-|--------------------------------------------------------------------------
-*/
-function redirect($path) {
-    header("Location: " . BASE_URL . $path);
-    exit();
-}
-
 function set_flash($message, $type = 'error') {
     $_SESSION['flash_message'] = $message;
     $_SESSION['flash_type'] = $type;
@@ -118,13 +102,15 @@ function set_flash($message, $type = 'error') {
 
 function get_flash() {
     if (!empty($_SESSION['flash_message'])) {
-        $msg = $_SESSION['flash_message'];
-        $type = $_SESSION['flash_type'] ?? 'info';
+        $flash = [
+            'message' => $_SESSION['flash_message'],
+            'type' => $_SESSION['flash_type'] ?? 'info'
+        ];
 
         unset($_SESSION['flash_message']);
         unset($_SESSION['flash_type']);
 
-        return ['message' => $msg, 'type' => $type];
+        return $flash;
     }
 
     return null;

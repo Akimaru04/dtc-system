@@ -128,8 +128,8 @@ if (isset($_POST['login'])) {
 
         <form method="POST">
 
-            <label>Student Number</label>
-            <input type="text" name="student_number" required>
+            <label>Username</label>
+            <input type="text" name="Username" required>
 
             <label>Password</label>
             <input type="password" name="password" required>
