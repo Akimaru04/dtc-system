@@ -57,3 +57,6 @@ Each user role has restricted access to specific modules. After login, users are
 
 ## 📄 License
 For academic use only. Not intended for commercial deployment.
+
+## 👨‍💻 Developer
+Jethro Manuel
