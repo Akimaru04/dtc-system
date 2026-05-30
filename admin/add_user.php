@@ -3,6 +3,7 @@ session_start();
 
 include(__DIR__ . '/../config/connect.php');
 include(__DIR__ . '/../middleware/auth.php');
+include('../includes/csrf.php');
 
 $user = require_role(['admin']);
 
