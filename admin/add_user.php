@@ -4,16 +4,42 @@ session_start();
 include(__DIR__ . '/../config/connect.php');
 include(__DIR__ . '/../middleware/auth.php');
 
-// 🔐 middleware protection
 $user = require_role(['admin']);
+
+/*
+|--------------------------------------------------------------------------
+| CSRF PROTECTION
+|--------------------------------------------------------------------------
+*/
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function csrf_field() {
+    return '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
+}
+
+function verify_csrf() {
+    if (
+        empty($_POST['csrf_token']) ||
+        empty($_SESSION['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
+    ) {
+        die("CSRF validation failed.");
+    }
+}
 
 $message = "";
 $temp_password = "";
 
-/* --------------------------
-   ADD USER PROCESS
--------------------------- */
+/*
+|--------------------------------------------------------------------------
+| ADD USER PROCESS
+|--------------------------------------------------------------------------
+*/
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_member'])) {
+
+    verify_csrf();
 
     $student_number = trim($_POST['student_number'] ?? '');
     $first_name     = trim($_POST['first_name'] ?? '');
@@ -25,39 +51,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_member'])) {
     $contact_number = trim($_POST['contact_number'] ?? '');
     $role           = $_POST['role'] ?? '';
 
-    /* --------------------------
-       VALIDATION
-    -------------------------- */
+    /*
+    |--------------------------------------------------------------------------
+    | VALIDATION
+    |--------------------------------------------------------------------------
+    */
     if (!$student_number || !$first_name || !$last_name || !$email || !$role) {
         $message = "Please fill in all required fields.";
 
-    } elseif (!in_array($role, ['student', 'registrar', 'admin'])) {
+    } elseif (!in_array($role, ['student', 'registrar', 'admin'], true)) {
         $message = "Invalid role selected.";
 
     } else {
 
-        /* --------------------------
-           AUTO FIX FIELDS
-        -------------------------- */
+        /*
+        |--------------------------------------------------------------------------
+        | AUTO FIX FIELDS
+        |--------------------------------------------------------------------------
+        */
         if ($role !== 'student') {
             $course = "N/A";
             $year_level = "N/A";
         }
 
-        $middle_name = $middle_name ?: "N/A";
+        $middle_name = $middle_name !== '' ? $middle_name : "N/A";
 
-        /* --------------------------
-           GENERATE TEMP PASSWORD
-        -------------------------- */
+        /*
+        |--------------------------------------------------------------------------
+        | TEMP PASSWORD
+        |--------------------------------------------------------------------------
+        */
         $temp_password_plain = bin2hex(random_bytes(4));
         $hashed_password = password_hash($temp_password_plain, PASSWORD_DEFAULT);
 
         $status = "active";
         $must_change_password = 1;
 
-        /* --------------------------
-           INSERT USER (SECURE)
-        -------------------------- */
+        /*
+        |--------------------------------------------------------------------------
+        | INSERT USER
+        |--------------------------------------------------------------------------
+        */
         $stmt = $conn->prepare("
             INSERT INTO users 
             (student_number, first_name, last_name, middle_name, email, password, role, course, year_level, contact_number, account_status, must_change_password)
@@ -96,57 +130,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_member'])) {
 <html>
 <head>
     <title>Add User</title>
+
+    <link rel="stylesheet" href="../assets/css/global.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
+
 <body>
 
-<a href="dashboard.php"><button>Back to Dashboard</button></a>
+<?php include('../includes/navbar.php'); ?>
 
-<h2>Add User (Admin)</h2>
+<div class="container">
 
-<?php if (!empty($message)): ?>
-    <p style="color: green; font-weight: bold;">
-        <?= htmlspecialchars($message) ?>
-    </p>
-<?php endif; ?>
+    <div class="card admin-header">
+        <h1>Add User</h1>
+        <p>Create student, registrar, or admin accounts</p>
+    </div>
 
-<?php if (!empty($temp_password)): ?>
-    <p style="color: blue; font-weight: bold;">
-        Temporary Password: <?= htmlspecialchars($temp_password) ?>
-    </p>
-<?php endif; ?>
+    <div class="card action-bar">
+        <a href="dashboard.php" class="btn btn-secondary">
+            Back to Dashboard
+        </a>
+    </div>
 
-<form method="POST">
+    <?php if (!empty($message)) { ?>
+        <div class="card">
+            <p><b><?= htmlspecialchars($message) ?></b></p>
+        </div>
+    <?php } ?>
 
-    <input type="text" name="student_number" placeholder="Student/Staff ID" required><br><br>
+    <?php if (!empty($temp_password)) { ?>
+        <div class="card">
+            <p style="color:#0d6efd;">
+                Temporary Password: <b><?= htmlspecialchars($temp_password) ?></b>
+            </p>
+        </div>
+    <?php } ?>
 
-    <input type="text" name="first_name" placeholder="First Name" required><br><br>
+    <div class="card">
 
-    <input type="text" name="last_name" placeholder="Last Name" required><br><br>
+        <form method="POST" class="form-grid">
 
-    <input type="text" name="middle_name" placeholder="Middle Name"><br><br>
+            <?= csrf_field() ?>
 
-    <input type="email" name="email" placeholder="Email" required><br><br>
+            <input type="text" name="student_number" placeholder="Student / Staff ID" required>
+            <input type="text" name="first_name" placeholder="First Name" required>
+            <input type="text" name="last_name" placeholder="Last Name" required>
+            <input type="text" name="middle_name" placeholder="Middle Name">
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="text" name="contact_number" placeholder="Contact Number" required>
+            <input type="text" name="course" placeholder="Course (Students only)">
+            <input type="text" name="year_level" placeholder="Year Level (Students only)">
 
-    <input type="password" disabled placeholder="Auto-generated password"><br><br>
+            <select name="role" required>
+                <option value="">-- Select Role --</option>
+                <option value="student">Student</option>
+                <option value="registrar">Registrar</option>
+                <option value="admin">Admin</option>
+            </select>
 
-    <input type="text" name="course" placeholder="Course (students only)"><br><br>
+            <button type="submit" name="add_member" class="btn btn-primary">
+                Create User
+            </button>
 
-    <input type="text" name="year_level" placeholder="Year Level (students only)"><br><br>
+        </form>
 
-    <input type="text" name="contact_number" placeholder="Contact Number" required><br><br>
+    </div>
 
-    <select name="role" required>
-        <option value="">-- Select Role --</option>
-        <option value="student">Student</option>
-        <option value="registrar">Registrar</option>
-        <option value="admin">Admin</option>
-    </select>
-
-    <br><br>
-
-    <button type="submit" name="add_member">Add User</button>
-
-</form>
+</div>
 
 </body>
 </html>

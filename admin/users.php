@@ -4,95 +4,211 @@ session_start();
 include('../config/connect.php');
 include('../middleware/auth.php');
 
-// 🔐 middleware protection
 $user = require_role(['admin']);
 
-// Fetch users (latest first)
-$result = mysqli_query($conn, "SELECT * FROM users ORDER BY user_id DESC");
+$search = trim($_GET['search'] ?? '');
+$page = max(1, (int)($_GET['page'] ?? 1));
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
+/*
+|--------------------------------------------------------------------------
+| BASE QUERY
+|--------------------------------------------------------------------------
+*/
+$sql = "
+    SELECT user_id, student_number, first_name, last_name, role
+    FROM users
+    WHERE 1=1
+";
+
+$count_sql = "
+    SELECT COUNT(*) as total
+    FROM users
+    WHERE 1=1
+";
+
+$params = [];
+$types = "";
+
+/*
+|--------------------------------------------------------------------------
+| SEARCH FILTER
+|--------------------------------------------------------------------------
+*/
+if ($search !== '') {
+
+    $sql .= " AND (
+        student_number LIKE ?
+        OR first_name LIKE ?
+        OR last_name LIKE ?
+        OR role LIKE ?
+    )";
+
+    $count_sql .= " AND (
+        student_number LIKE ?
+        OR first_name LIKE ?
+        OR last_name LIKE ?
+        OR role LIKE ?
+    )";
+
+    $like = "%$search%";
+
+    for ($i = 0; $i < 4; $i++) {
+        $params[] = $like;
+        $types .= "s";
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| COUNT QUERY (SAFE)
+|--------------------------------------------------------------------------
+*/
+$count_stmt = $conn->prepare($count_sql);
+
+if ($search !== '') {
+    $count_stmt->bind_param($types, ...$params);
+}
+
+$count_stmt->execute();
+$total_rows = $count_stmt->get_result()->fetch_assoc()['total'] ?? 0;
+$count_stmt->close();
+
+$total_pages = max(1, ceil($total_rows / $limit));
+
+/*
+|--------------------------------------------------------------------------
+| MAIN QUERY (PAGINATION)
+|--------------------------------------------------------------------------
+*/
+$sql .= " ORDER BY user_id DESC LIMIT ? OFFSET ?";
+
+$params[] = $limit;
+$params[] = $offset;
+$types .= "ii";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param($types, ...$params);
+$stmt->execute();
+
+$result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
     <title>User Management</title>
+
+    <link rel="stylesheet" href="../assets/css/global.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
+
 <body>
 
-<h2>User Management</h2>
+<?php include('../includes/navbar.php'); ?>
 
-<!-- ACTION BUTTONS -->
-<a href="add_user.php"><button>Add New User</button></a>
-<a href="dashboard.php"><button>Back to Dashboard</button></a>
+<div class="container">
 
-<br><br>
+    <div class="card admin-header">
+        <h1>User Management</h1>
+        <p>Manage system users and roles</p>
+    </div>
 
-<!-- SUCCESS MESSAGE -->
-<?php if (isset($_GET['success'])): ?>
-    <p style="color:green;">
-        <?= htmlspecialchars($_GET['success']) ?>
-    </p>
-<?php endif; ?>
+    <div class="card action-bar">
+        <a href="dashboard.php" class="btn btn-secondary">Back</a>
+        <a href="add_user.php" class="btn btn-primary">+ Add User</a>
+    </div>
 
-<!-- USERS TABLE -->
-<table border="1" cellpadding="10" cellspacing="0">
+    <div class="card">
+        <form method="GET">
+            <input type="text"
+                   name="search"
+                   placeholder="Search name, student number, role..."
+                   value="<?= htmlspecialchars($search) ?>">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+    </div>
 
-    <tr>
-        <th>ID</th>
-        <th>Student Number</th>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Role</th>
-        <th>Course</th>
-        <th>Year Level</th>
-        <th>Status</th>
-        <th>Action</th>
-    </tr>
+    <div class="card">
 
-    <!-- NO USERS -->
-    <?php if (mysqli_num_rows($result) == 0): ?>
-        <tr>
-            <td colspan="9">No users found</td>
-        </tr>
-    <?php endif; ?>
+        <table class="reg-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Student No.</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
 
-    <!-- LOOP USERS -->
-    <?php while ($row = mysqli_fetch_assoc($result)) { ?>
-        <tr>
+            <tbody>
 
-            <td><?= $row['user_id'] ?></td>
-            <td><?= $row['student_number'] ?></td>
-            <td><?= $row['first_name'] . " " . $row['last_name'] ?></td>
-            <td><?= $row['email'] ?></td>
-            <td><?= ucfirst($row['role']) ?></td>
-            <td><?= $row['course'] ?></td>
-            <td><?= $row['year_level'] ?></td>
+            <?php if ($result->num_rows === 0): ?>
+                <tr>
+                    <td colspan="5" class="empty-state">No users found</td>
+                </tr>
+            <?php else: ?>
 
-            <td>
-                <?php if ($row['account_status'] == 'active') { ?>
-                    <span style="color:green;">Active</span>
-                <?php } else { ?>
-                    <span style="color:red;">Inactive</span>
-                <?php } ?>
-            </td>
+                <?php while ($row = $result->fetch_assoc()): ?>
+                    <?php $role = htmlspecialchars(strtolower($row['role'])); ?>
 
-            <td>
-                <a href="edit_user.php?id=<?= $row['user_id'] ?>">Edit</a> |
-                <a href="reset_password.php?id=<?= $row['user_id'] ?>"
-                   onclick="return confirm('Reset this user password?')"
-                   style="color:orange;">
-                   Reset
-                </a> |
-                <a href="delete_user.php?id=<?= $row['user_id'] ?>"
-                   onclick="return confirm('Are you sure?')"
-                   style="color:red;">
-                   Delete
-                </a>
-            </td>
+                    <tr>
+                        <td><?= (int)$row['user_id'] ?></td>
 
-        </tr>
-    <?php } ?>
+                        <td><?= htmlspecialchars($row['student_number']) ?></td>
 
-</table>
+                        <td>
+                            <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?>
+                        </td>
+
+                        <td>
+                            <span class="badge <?= $role ?>">
+                                <?= ucfirst($role) ?>
+                            </span>
+                        </td>
+
+                        <td class="action-cell">
+
+                            <a href="edit_user.php?id=<?= (int)$row['user_id'] ?>"
+                               class="btn btn-primary">Edit</a>
+
+                            <a href="reset_password.php?id=<?= (int)$row['user_id'] ?>"
+                               class="btn btn-secondary"
+                               onclick="return confirm('Reset password for this user?')">
+                               Reset
+                            </a>
+
+                            <a href="delete_user.php?id=<?= (int)$row['user_id'] ?>"
+                               class="btn btn-danger"
+                               onclick="return confirm('Delete this user? This cannot be undone.')">
+                               Delete
+                            </a>
+
+                        </td>
+                    </tr>
+                <?php endwhile; ?>
+
+            <?php endif; ?>
+
+            </tbody>
+        </table>
+
+    </div>
+
+    <div class="card pagination">
+
+        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+            <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>"
+               class="btn <?= $i == $page ? 'btn-primary' : 'btn-secondary' ?>">
+               <?= $i ?>
+            </a>
+        <?php endfor; ?>
+
+    </div>
+
+</div>
 
 </body>
 </html>

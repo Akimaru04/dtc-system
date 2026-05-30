@@ -4,87 +4,104 @@ session_start();
 include('../config/connect.php');
 include('../middleware/auth.php');
 
-// 🔐 middleware protection
 $user = require_role(['admin']);
-
-// Get user ID from URL
-$id = intval($_GET['id'] ?? 0);
-
-if ($id <= 0) {
-    die("Invalid user ID");
-}
 
 /*
 |--------------------------------------------------------------------------
-| FETCH USER
+| FETCH USER (GET REQUEST)
 |--------------------------------------------------------------------------
 */
-$stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");
+$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+
+if (!$id) {
+    set_flash("Invalid user ID.", "error");
+    header("Location: users.php");
+    exit();
+}
+
+$stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ? LIMIT 1");
 $stmt->bind_param("i", $id);
 $stmt->execute();
-$result = $stmt->get_result();
-$targetUser = $result->fetch_assoc();
+
+$targetUser = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$targetUser) {
-    die("User not found");
+    set_flash("User not found.", "error");
+    header("Location: users.php");
+    exit();
 }
 
 /*
 |--------------------------------------------------------------------------
-| UPDATE USER
+| UPDATE USER (POST REQUEST)
 |--------------------------------------------------------------------------
 */
-if (isset($_POST['update_user'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $first_name   = trim($_POST['first_name'] ?? '');
-    $last_name    = trim($_POST['last_name'] ?? '');
-    $email        = trim($_POST['email'] ?? '');
-    $role         = $_POST['role'] ?? '';
-    $course       = trim($_POST['course'] ?? '');
-    $year_level   = trim($_POST['year_level'] ?? '');
-    $status       = $_POST['account_status'] ?? '';
+    // CSRF CHECK
+    if (
+        empty($_POST['csrf_token']) ||
+        empty($_SESSION['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
+    ) {
+        set_flash("Security validation failed.", "error");
+        header("Location: users.php");
+        exit();
+    }
 
-    // Basic validation
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name  = trim($_POST['last_name'] ?? '');
+    $email      = trim($_POST['email'] ?? '');
+    $role       = $_POST['role'] ?? '';
+    $course     = trim($_POST['course'] ?? '');
+    $year_level = trim($_POST['year_level'] ?? '');
+    $status     = $_POST['account_status'] ?? '';
+
     if (!$first_name || !$last_name || !$email || !$role) {
-        die("Missing required fields");
+        set_flash("Missing required fields.", "error");
+    } else {
+
+        // enforce rule
+        if ($role !== 'student') {
+            $course = "N/A";
+            $year_level = "N/A";
+        }
+
+        $stmt = $conn->prepare("
+            UPDATE users
+            SET first_name = ?,
+                last_name = ?,
+                email = ?,
+                role = ?,
+                course = ?,
+                year_level = ?,
+                account_status = ?
+            WHERE user_id = ?
+        ");
+
+        $stmt->bind_param(
+            "sssssssi",
+            $first_name,
+            $last_name,
+            $email,
+            $role,
+            $course,
+            $year_level,
+            $status,
+            $id
+        );
+
+        if ($stmt->execute()) {
+            set_flash("User updated successfully.", "success");
+            header("Location: users.php");
+            exit();
+        } else {
+            set_flash("Update failed.", "error");
+        }
+
+        $stmt->close();
     }
-
-    // Auto-handle non-student roles
-    if ($role !== 'student') {
-        $course = "N/A";
-        $year_level = "N/A";
-    }
-
-    $stmt = $conn->prepare("
-        UPDATE users
-        SET first_name = ?,
-            last_name = ?,
-            email = ?,
-            role = ?,
-            course = ?,
-            year_level = ?,
-            account_status = ?
-        WHERE user_id = ?
-    ");
-
-    $stmt->bind_param(
-        "sssssssi",
-        $first_name,
-        $last_name,
-        $email,
-        $role,
-        $course,
-        $year_level,
-        $status,
-        $id
-    );
-
-    $stmt->execute();
-    $stmt->close();
-
-    header("Location: users.php?success=User updated successfully");
-    exit;
 }
 ?>
 
@@ -92,66 +109,77 @@ if (isset($_POST['update_user'])) {
 <html>
 <head>
     <title>Edit User</title>
+
+    <link rel="stylesheet" href="../assets/css/global.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
+
 <body>
 
-<h2>Edit User</h2>
+<?php include('../includes/navbar.php'); ?>
 
-<p>Logged in as: <?= htmlspecialchars($user['name']) ?></p>
+<div class="container">
 
-<a href="users.php">← Back to Users</a>
+    <!-- HEADER -->
+    <div class="card admin-header">
+        <h1>Edit User</h1>
+        <p>Update user information and account settings</p>
+    </div>
 
-<br><br>
+    <!-- BACK BUTTON -->
+    <div class="card action-bar">
+        <a href="users.php" class="btn btn-secondary">
+            ← Back to Users
+        </a>
+    </div>
 
-<form method="POST">
+    <!-- FORM -->
+    <div class="card">
 
-    <label>First Name</label><br>
-    <input type="text" name="first_name"
-           value="<?= htmlspecialchars($targetUser['first_name']) ?>" required>
-    <br><br>
+        <form method="POST" class="form-grid">
 
-    <label>Last Name</label><br>
-    <input type="text" name="last_name"
-           value="<?= htmlspecialchars($targetUser['last_name']) ?>" required>
-    <br><br>
+            <?= csrf_field() ?>
 
-    <label>Email</label><br>
-    <input type="email" name="email"
-           value="<?= htmlspecialchars($targetUser['email']) ?>" required>
-    <br><br>
+            <input type="text" name="first_name"
+                   value="<?= htmlspecialchars($targetUser['first_name']) ?>"
+                   placeholder="First Name" required>
 
-    <label>Role</label><br>
-    <select name="role">
-        <option value="student" <?= $targetUser['role'] == 'student' ? 'selected' : '' ?>>Student</option>
-        <option value="registrar" <?= $targetUser['role'] == 'registrar' ? 'selected' : '' ?>>Registrar</option>
-        <option value="admin" <?= $targetUser['role'] == 'admin' ? 'selected' : '' ?>>Admin</option>
-    </select>
+            <input type="text" name="last_name"
+                   value="<?= htmlspecialchars($targetUser['last_name']) ?>"
+                   placeholder="Last Name" required>
 
-    <br><br>
+            <input type="email" name="email"
+                   value="<?= htmlspecialchars($targetUser['email']) ?>"
+                   placeholder="Email" required>
 
-    <label>Course</label><br>
-    <input type="text" name="course"
-           value="<?= htmlspecialchars($targetUser['course']) ?>">
+            <select name="role" required>
+                <option value="student" <?= $targetUser['role'] === 'student' ? 'selected' : '' ?>>Student</option>
+                <option value="registrar" <?= $targetUser['role'] === 'registrar' ? 'selected' : '' ?>>Registrar</option>
+                <option value="admin" <?= $targetUser['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
+            </select>
 
-    <br><br>
+            <input type="text" name="course"
+                   value="<?= htmlspecialchars($targetUser['course']) ?>"
+                   placeholder="Course">
 
-    <label>Year Level</label><br>
-    <input type="text" name="year_level"
-           value="<?= htmlspecialchars($targetUser['year_level']) ?>">
+            <input type="text" name="year_level"
+                   value="<?= htmlspecialchars($targetUser['year_level']) ?>"
+                   placeholder="Year Level">
 
-    <br><br>
+            <select name="account_status">
+                <option value="active" <?= $targetUser['account_status'] === 'active' ? 'selected' : '' ?>>Active</option>
+                <option value="inactive" <?= $targetUser['account_status'] === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+            </select>
 
-    <label>Status</label><br>
-    <select name="account_status">
-        <option value="active" <?= $targetUser['account_status'] == 'active' ? 'selected' : '' ?>>Active</option>
-        <option value="inactive" <?= $targetUser['account_status'] == 'inactive' ? 'selected' : '' ?>>Inactive</option>
-    </select>
+            <button type="submit" class="btn btn-primary">
+                Update User
+            </button>
 
-    <br><br>
+        </form>
 
-    <button type="submit" name="update_user">Update User</button>
+    </div>
 
-</form>
+</div>
 
 </body>
 </html>

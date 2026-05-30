@@ -1,0 +1,96 @@
+
+/* =========================
+   REGISTRAR DASHBOARD BASE
+========================= */
+
+.reg-header p {
+    margin-top: 5px;
+    color: #6b7280;
+}
+
+/* =========================
+   STATUS GRID FIX (IMPORTANT)
+========================= */
+
+.grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+}
+
+/* =========================
+   STATUS CARDS (OVERVIEW)
+========================= */
+
+.status-box {
+    text-align: center;
+    padding: 12px;
+}
+
+/* =========================
+   FILTER SECTION
+========================= */
+
+.filter-bar form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* =========================
+   TABLE FIX (REGISTRAR STYLE)
+========================= */
+
+.reg-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.reg-table th,
+.reg-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: top;
+}
+
+.reg-table th {
+    background: #f3f4f6;
+    font-weight: 600;
+}
+
+.reg-table tr:hover {
+    background: #f9fafb;
+}
+
+/* =========================
+   ACTION FORM CLEANUP
+========================= */
+
+.action-form {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    min-width: 180px;
+}
+
+.action-form select {
+    font-size: 13px;
+}
+
+.action-form button {
+    background: #198754;
+    color: white;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 6px;
+}
+
+/* =========================
+   SMALL TEXT (student number)
+========================= */
+
+.reg-table small {
+    color: #6b7280;
+}

@@ -9,11 +9,6 @@ require_role(['student']);
 
 $user_id = $_SESSION['user_id'];
 
-/*
-|--------------------------------------------------------------------------
-| FETCH STUDENT REQUESTS
-|--------------------------------------------------------------------------
-*/
 $stmt = $conn->prepare("
     SELECT 
         dr.request_id,
@@ -40,57 +35,87 @@ $requests = $stmt->get_result();
 <html>
 <head>
     <title>My Requests</title>
+
+    <link rel="stylesheet" href="../assets/css/global.css">
 </head>
+
 <body>
 
-<h2>My Document Requests</h2>
+<?php include('../includes/navbar.php'); ?>
 
-<?php if (isset($_GET['success'])) { ?>
-    <p style="color:green;">Request submitted successfully!</p>
-<?php } ?>
+<div class="container">
 
-<a href="dashboard.php">
-    <button>Back to Dashboard</button>
-</a>
+    <!-- HEADER -->
+    <div class="card">
+        <h2>My Document Requests</h2>
 
-<br><br>
+        <?php if (isset($_GET['success'])) { ?>
+            <p style="color:green; margin-top:10px;">
+                Request submitted successfully!
+            </p>
+        <?php } ?>
 
-<?php if ($requests->num_rows > 0) { ?>
+        <div style="margin-top:10px;">
+            <a href="dashboard.php">
+                <button class="btn" style="background:#6c757d; color:white;">
+                    ← Back to Dashboard
+                </button>
+            </a>
+        </div>
+    </div>
 
-<table border="1" cellpadding="10">
-    <tr>
-        <th>Request ID</th>
-        <th>Tracking Code</th>
-        <th>Document</th>
-        <th>Purpose</th>
-        <th>Quantity</th>
-        <th>Status</th>
-        <th>Remarks</th>
-        <th>Request Date</th>
-    </tr>
+    <!-- TABLE -->
+    <div class="card">
 
-    <?php while ($row = $requests->fetch_assoc()) { ?>
-    <tr>
-        <td><?= $row['request_id'] ?></td>
-        <td><?= htmlspecialchars($row['tracking_code']) ?></td>
-        <td><?= htmlspecialchars($row['document_name']) ?></td>
-        <td><?= htmlspecialchars($row['purpose']) ?></td>
-        <td><?= $row['quantity'] ?></td>
-        <td><?= htmlspecialchars($row['status']) ?></td>
-        <td><?= htmlspecialchars($row['remarks']) ?></td>
-        <td>
-            <?= date("M d, Y h:i A", strtotime($row['request_date'])) ?>
-        </td>
-    </tr>
-    <?php } ?>
+        <?php if ($requests->num_rows > 0) { ?>
 
-</table>
+            <div class="table-wrapper">
+                <table>
 
-<?php } else { ?>
+                    <thead>
+                        <tr>
+                            <th>Tracking Code</th>
+                            <th>Document</th>
+                            <th>Purpose</th>
+                            <th>Qty</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
 
-<p>No document requests found.</p>
+                    <tbody>
+                        <?php while ($row = $requests->fetch_assoc()) { ?>
+                        <tr>
+                            <td><?= htmlspecialchars($row['tracking_code']) ?></td>
+                            <td><?= htmlspecialchars($row['document_name']) ?></td>
+                            <td><?= htmlspecialchars($row['purpose']) ?></td>
+                            <td><?= $row['quantity'] ?></td>
 
-<?php } ?>
+                            <td>
+                                <span class="badge <?= htmlspecialchars($row['status']) ?>">
+                                    <?= htmlspecialchars(ucfirst(str_replace('_', ' ', $row['status']))) ?>
+                                </span>
+                            </td>
+
+                            <td>
+                                <?= date("M d, Y h:i A", strtotime($row['request_date'])) ?>
+                            </td>
+                        </tr>
+                        <?php } ?>
+                    </tbody>
+
+                </table>
+            </div>
+
+        <?php } else { ?>
+
+            <p>No document requests found.</p>
+
+        <?php } ?>
+
+    </div>
+
+</div>
 
 </body>
 </html>

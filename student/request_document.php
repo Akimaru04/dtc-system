@@ -1,81 +1,74 @@
 <?php
 session_start();
+include('../config/connect.php');
+include('../middleware/auth.php');
 
-include("../config/connect.php");
-include("../middleware/auth.php");
-
-// student-only access
 $user = require_role(['student']);
-
-$user_id = $_SESSION['user_id'];
-
-/*
-|--------------------------------------------------------------------------
-| FETCH DOCUMENT TYPES (ACTIVE ONLY)
-|--------------------------------------------------------------------------
-*/
-$stmt = $conn->prepare("
-    SELECT document_type_id, document_name 
-    FROM document_types 
-    WHERE is_active = 1
-    ORDER BY document_name ASC
-");
-
-$stmt->execute();
-$documents = $stmt->get_result();
+enforce_password_change($user);
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
     <title>Request Document</title>
+
+    <link rel="stylesheet" href="../assets/css/global.css">
 </head>
+
 <body>
 
-<?php include("../includes/navbar.php"); ?>
+<?php include('../includes/navbar.php'); ?>
 
-<h2>Request Document</h2>
+<div class="container">
 
-<a href="dashboard.php">
-    <button>Back to Dashboard</button>
-</a>
+    <div class="card">
 
-<br><br>
+    <h1>Request Document</h1>
+    <p>Fill out the form below to submit your document request.</p>
 
-<form method="POST" action="submit_request.php">
+    <div style="margin-top: 10px;">
+        <a href="dashboard.php">
+            <button type="button" class="btn btn-secondary">
+                ← Back to Dashboard
+            </button>
+        </a>
+    </div>
 
-    <label>Document Type</label><br>
-    <select name="document_type_id" required>
-        <option value="">-- Select Document --</option>
+</div>
 
-        <?php while ($doc = $documents->fetch_assoc()) { ?>
-            <option value="<?= $doc['document_type_id'] ?>">
-                <?= htmlspecialchars($doc['document_name']) ?>
-            </option>
-        <?php } ?>
+    <!-- FORM -->
+    <div class="card">
 
-    </select>
+        <form method="POST" action="process_request.php">
 
-    <br><br>
+            <label>Document Type</label>
+            <select name="document_type_id" required>
+                <option value="">-- Select Document --</option>
+                <?php
+                $docs = $conn->query("SELECT document_type_id, document_name FROM document_types");
+                while ($doc = $docs->fetch_assoc()) {
+                    echo "<option value='{$doc['document_type_id']}'>
+                            {$doc['document_name']}
+                        </option>";
+                }
+                ?>
+            </select>
 
-    <label>Purpose</label><br>
-    <input type="text" name="purpose" required>
+            <label>Purpose</label>
+            <textarea name="purpose" rows="4" required></textarea>
 
-    <br><br>
+            <label>Contact Number</label>
+            <input type="text" name="contact_number" required>
 
-    <label>Quantity</label><br>
-    <input type="number" name="quantity" value="1" min="1" required>
+            <button type="submit" class="btn" style="background:#0d6efd; color:white; width:100%;">
+                Submit Request
+            </button>
 
-    <br><br>
+        </form>
 
-    <label>Remarks (optional)</label><br>
-    <textarea name="remarks"></textarea>
+    </div>
 
-    <br><br>
-
-    <button type="submit">Submit Request</button>
-
-</form>
+</div>
 
 </body>
 </html>

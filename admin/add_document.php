@@ -4,24 +4,50 @@ session_start();
 include('../config/connect.php');
 include('../middleware/auth.php');
 
-// 🔐 middleware protection
 $user = require_role(['admin']);
-
-// enforce password change rule
 enforce_password_change($user);
 
 $message = "";
 
-/* --------------------------
-   ADD DOCUMENT TYPE
--------------------------- */
+/*
+|--------------------------------------------------------------------------
+| CSRF PROTECTION
+|--------------------------------------------------------------------------
+*/
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function csrf_field() {
+    return '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
+}
+
+function verify_csrf() {
+
+    if (
+        empty($_POST['csrf_token']) ||
+        empty($_SESSION['csrf_token']) ||
+        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
+    ) {
+        die("CSRF validation failed.");
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| POST HANDLER
+|--------------------------------------------------------------------------
+*/
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    verify_csrf();
 
     $document_name = trim($_POST['document_name'] ?? '');
     $description   = trim($_POST['description'] ?? '');
 
-    if (!$document_name) {
+    if ($document_name === '') {
         $message = "Document name is required.";
+
     } else {
 
         $stmt = $conn->prepare("
@@ -32,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("ss", $document_name, $description);
 
         if ($stmt->execute()) {
-            header("Location: document_types.php?success=Document type added successfully");
+            header("Location: document_types.php?success=1");
             exit();
         } else {
             $message = "Error: " . $stmt->error;
@@ -47,41 +73,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html>
 <head>
     <title>Add Document Type</title>
+
+    <link rel="stylesheet" href="../assets/css/global.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
+
 <body>
 
-<!-- ONLY LOGOUT -->
-<div style="text-align:right;">
-    <a href="../logout.php">Logout</a>
+<?php include('../includes/navbar.php'); ?>
+
+<div class="container">
+
+    <!-- HEADER -->
+    <div class="card admin-header">
+        <h1>Add Document Type</h1>
+        <p>Create official requestable documents</p>
+    </div>
+
+    <!-- BACK BUTTON -->
+    <div class="card action-bar">
+        <a href="document_types.php" class="btn btn-secondary">
+            ← Back
+        </a>
+    </div>
+
+    <!-- MESSAGE -->
+    <?php if (!empty($message)) { ?>
+        <div class="card">
+            <p><b><?= htmlspecialchars($message) ?></b></p>
+        </div>
+    <?php } ?>
+
+    <!-- FORM -->
+    <div class="card">
+
+            <form method="POST" class="form-grid">
+
+        <?= csrf_field() ?>
+
+        <input type="text"
+            name="document_name"
+            placeholder="Document Name"
+            required>
+
+        <input type="text"
+            name="description"
+            placeholder="Description (optional)">
+
+        <button type="submit" class="btn btn-primary">
+            Add Document
+        </button>
+
+    </form>
+
+    </div>
+
 </div>
-
-<h2>Add Document Type</h2>
-
-<p>Logged in as: <?= htmlspecialchars($user['name']) ?></p>
-
-<a href="document_types.php">
-    <button type="button">Back</button>
-</a>
-
-<br><br>
-
-<?php if (!empty($message)): ?>
-    <p style="color:red;">
-        <?= htmlspecialchars($message) ?>
-    </p>
-<?php endif; ?>
-
-<form method="POST">
-
-    <input type="text" name="document_name" placeholder="Document Name" required>
-    <br><br>
-
-    <textarea name="description" placeholder="Description"></textarea>
-    <br><br>
-
-    <button type="submit">Add Document</button>
-
-</form>
 
 </body>
 </html>

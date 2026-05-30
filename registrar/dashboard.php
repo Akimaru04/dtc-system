@@ -9,7 +9,7 @@ $user = require_role(['registrar']);
 
 /*
 |--------------------------------------------------------------------------
-| HANDLE STATUS UPDATE (FULL ADMIN CONTROL)
+| STATUS UPDATE
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -35,11 +35,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 /*
 |--------------------------------------------------------------------------
-| FILTER
+| FILTERS + PAGINATION
 |--------------------------------------------------------------------------
 */
 $status_filter = $_GET['status'] ?? '';
+$search = trim($_GET['search'] ?? '');
 
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
+/*
+|--------------------------------------------------------------------------
+| MAIN QUERY
+|--------------------------------------------------------------------------
+*/
 $sql = "
     SELECT 
         dr.request_id,
@@ -53,18 +63,99 @@ $sql = "
     FROM document_requests dr
     JOIN users u ON dr.user_id = u.user_id
     JOIN document_types dt ON dr.document_type_id = dt.document_type_id
+    WHERE 1=1
 ";
 
-if (!empty($status_filter)) {
-    $sql .= " WHERE dr.status = ?";
+$params = [];
+$types = "";
+
+if ($status_filter !== '') {
+    $sql .= " AND dr.status = ?";
+    $params[] = $status_filter;
+    $types .= "s";
 }
 
-$sql .= " ORDER BY dr.request_date DESC";
+if ($search !== '') {
+
+    $sql .= " AND (
+        dr.tracking_code LIKE ?
+        OR u.first_name LIKE ?
+        OR u.last_name LIKE ?
+        OR u.student_number LIKE ?
+    )";
+
+    $like = "%$search%";
+
+    for ($i = 0; $i < 4; $i++) {
+        $params[] = $like;
+        $types .= "s";
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| COUNT QUERY
+|--------------------------------------------------------------------------
+*/
+$count_sql = "
+    SELECT COUNT(*) as total
+    FROM document_requests dr
+    JOIN users u ON dr.user_id = u.user_id
+    WHERE 1=1
+";
+
+$count_params = [];
+$count_types = "";
+
+if ($status_filter !== '') {
+    $count_sql .= " AND dr.status = ?";
+    $count_params[] = $status_filter;
+    $count_types .= "s";
+}
+
+if ($search !== '') {
+
+    $count_sql .= " AND (
+        dr.tracking_code LIKE ?
+        OR u.first_name LIKE ?
+        OR u.last_name LIKE ?
+        OR u.student_number LIKE ?
+    )";
+
+    $like = "%$search%";
+
+    for ($i = 0; $i < 4; $i++) {
+        $count_params[] = $like;
+        $count_types .= "s";
+    }
+}
+
+$count_stmt = $conn->prepare($count_sql);
+
+if (!empty($count_params)) {
+    $count_stmt->bind_param($count_types, ...$count_params);
+}
+
+$count_stmt->execute();
+$total_rows = $count_stmt->get_result()->fetch_assoc()['total'];
+
+$total_pages = ceil($total_rows / $limit);
+
+/*
+|--------------------------------------------------------------------------
+| FINAL QUERY
+|--------------------------------------------------------------------------
+*/
+$sql .= " ORDER BY dr.request_date DESC LIMIT ? OFFSET ?";
+
+$params[] = $limit;
+$params[] = $offset;
+$types .= "ii";
 
 $stmt = $conn->prepare($sql);
 
-if (!empty($status_filter)) {
-    $stmt->bind_param("s", $status_filter);
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
 }
 
 $stmt->execute();
@@ -76,10 +167,18 @@ $result = $stmt->get_result();
 |--------------------------------------------------------------------------
 */
 $counts = [];
+
 foreach ($REQUEST_STATUSES as $status) {
-    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM document_requests WHERE status = ?");
+
+    $stmt = $conn->prepare("
+        SELECT COUNT(*) as total 
+        FROM document_requests 
+        WHERE status = ?
+    ");
+
     $stmt->bind_param("s", $status);
     $stmt->execute();
+
     $counts[$status] = $stmt->get_result()->fetch_assoc()['total'];
 }
 ?>
@@ -88,106 +187,178 @@ foreach ($REQUEST_STATUSES as $status) {
 <html>
 <head>
     <title>Registrar Dashboard</title>
+
+    <link rel="stylesheet" href="../assets/css/global.css">
+    <link rel="stylesheet" href="../assets/css/registrar.css">
 </head>
+
 <body>
 
-<a href="../logout.php"><button>Logout</button></a>
+<?php include('../includes/navbar.php'); ?>
 
-<h1>Registrar Dashboard</h1>
+<div class="container">
 
-<p>Welcome, <?= htmlspecialchars($user['name']) ?>!</p>
+    <!-- HEADER -->
+    <div class="card reg-header">
+        <h1>Registrar Dashboard</h1>
+        <p>Manage and process document requests efficiently</p>
+    </div>
 
-<!-- STATUS OVERVIEW -->
-<div style="display:flex; gap:10px; flex-wrap:wrap;">
-    <div>Pending Payment: <b><?= $counts['pending_payment'] ?></b></div>
-    <div>Uploaded: <b><?= $counts['payment_uploaded'] ?></b></div>
-    <div>Verified: <b><?= $counts['payment_verified'] ?></b></div>
-    <div>Processing: <b><?= $counts['processing'] ?></b></div>
-    <div>Ready: <b><?= $counts['ready_for_pickup'] ?></b></div>
-</div>
+    <!-- STATUS CARDS -->
+    <div class="card">
+        <h3>Status Overview</h3>
 
-<br>
+        <div class="grid-3">
 
-<!-- FILTER -->
-<form method="GET">
-    <select name="status">
-        <option value="">All</option>
-        <?php foreach ($REQUEST_STATUSES as $s) { ?>
-            <option value="<?= $s ?>" <?= $status_filter === $s ? 'selected' : '' ?>>
-                <?= ucwords(str_replace('_', ' ', $s)) ?>
-            </option>
-        <?php } ?>
-    </select>
-    <button type="submit">Filter</button>
-</form>
+            <?php foreach ($counts as $label => $count) { ?>
+                <div class="card status-box">
+                    <b><?= ucwords(str_replace('_', ' ', $label)) ?></b>
+                    <div style="font-size:20px; margin-top:5px;">
+                        <?= $count ?>
+                    </div>
+                </div>
+            <?php } ?>
 
-<br>
+        </div>
+    </div>
 
-<!-- TABLE -->
-<table border="1" cellpadding="10" cellspacing="0" width="100%">
+    <!-- FILTER BAR -->
+    <div class="card filter-bar">
 
-<tr style="background:#f2f2f2;">
-    <th>ID</th>
-    <th>Tracking</th>
-    <th>Student</th>
-    <th>Document</th>
-    <th>Status</th>
-    <th>Date</th>
-    <th>Action</th>
-</tr>
+        <form method="GET" class="filter-form">
 
-<?php while ($row = $result->fetch_assoc()) { ?>
+            <input 
+                type="text"
+                name="search"
+                placeholder="Search tracking code, name, or student no."
+                value="<?= htmlspecialchars($search) ?>"
+            >
 
-<tr>
-
-    <td><?= $row['request_id'] ?></td>
-
-    <td><b><?= htmlspecialchars($row['tracking_code']) ?></b></td>
-
-    <td>
-        <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?><br>
-        <small><?= htmlspecialchars($row['student_number']) ?></small>
-    </td>
-
-    <td><?= htmlspecialchars($row['document_name']) ?></td>
-
-    <td>
-        <b><?= ucwords(str_replace('_', ' ', $row['status'])) ?></b>
-    </td>
-
-    <td>
-        <?= date("M d, Y h:i A", strtotime($row['request_date'])) ?>
-    </td>
-
-    <td>
-
-        <form method="POST" style="display:flex; gap:5px; align-items:center;">
-
-            <input type="hidden" name="request_id" value="<?= $row['request_id'] ?>">
-
-            <select name="status" required>
-
-                <option value="" disabled>Select status</option>
+            <select name="status">
+                <option value="">All Status</option>
 
                 <?php foreach ($REQUEST_STATUSES as $s) { ?>
-                    <option value="<?= $s ?>" <?= $row['status'] === $s ? 'selected' : '' ?>>
+                    <option value="<?= $s ?>" <?= $status_filter === $s ? 'selected' : '' ?>>
                         <?= ucwords(str_replace('_', ' ', $s)) ?>
                     </option>
                 <?php } ?>
 
             </select>
 
-            <button type="submit">Update</button>
+            <button class="btn btn-primary">Filter</button>
 
         </form>
 
-    </td>
+    </div>
 
-</tr>
+    <!-- TABLE -->
+    <div class="card">
 
-<?php } ?>
+        <div class="table-wrapper">
 
-</table>
+            <table class="reg-table">
+
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tracking</th>
+                        <th>Student</th>
+                        <th>Document</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                <?php if ($result->num_rows > 0) { ?>
+
+                    <?php while ($row = $result->fetch_assoc()) { ?>
+
+                        <tr>
+
+                            <td><?= $row['request_id'] ?></td>
+
+                            <td><b><?= htmlspecialchars($row['tracking_code']) ?></b></td>
+
+                            <td>
+                                <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?><br>
+                                <small><?= htmlspecialchars($row['student_number']) ?></small>
+                            </td>
+
+                            <td><?= htmlspecialchars($row['document_name']) ?></td>
+
+                            <td>
+                                <span class="badge <?= $row['status'] ?>">
+                                    <?= ucwords(str_replace('_', ' ', $row['status'])) ?>
+                                </span>
+                            </td>
+
+                            <td>
+                                <?= date("M d, Y h:i A", strtotime($row['request_date'])) ?>
+                            </td>
+
+                            <td>
+                                <form method="POST" class="action-form">
+                                    <input type="hidden" name="request_id" value="<?= $row['request_id'] ?>">
+
+                                    <select name="status">
+                                        <?php foreach ($REQUEST_STATUSES as $s) { ?>
+                                            <option value="<?= $s ?>" <?= $row['status'] === $s ? 'selected' : '' ?>>
+                                                <?= ucwords(str_replace('_', ' ', $s)) ?>
+                                            </option>
+                                        <?php } ?>
+                                    </select>
+
+                                    <button type="submit" class="btn btn-success">
+                                        Update
+                                    </button>
+                                </form>
+                            </td>
+
+                        </tr>
+
+                    <?php } ?>
+
+                <?php } else { ?>
+
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            No requests found
+                        </td>
+                    </tr>
+
+                <?php } ?>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    <!-- PAGINATION -->
+    <div class="pagination">
+
+        <?php if ($page > 1) { ?>
+            <a href="?page=<?= $page - 1 ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>">
+                Prev
+            </a>
+        <?php } ?>
+
+        <span>Page <?= $page ?> of <?= $total_pages ?></span>
+
+        <?php if ($page < $total_pages) { ?>
+            <a href="?page=<?= $page + 1 ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>">
+                Next
+            </a>
+        <?php } ?>
+
+    </div>
+
+</div>
 
 </body>
 </html>
