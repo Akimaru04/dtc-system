@@ -9,15 +9,15 @@ $error = "";
 
 /*
 |--------------------------------------------------------------------------
-| ROLE REDIRECT MAP (CLEANER STRUCTURE)
+| ROLE REDIRECT MAP
 |--------------------------------------------------------------------------
 */
 function redirect_by_role($role) {
 
     $map = [
-        'student' => '/student/dashboard.php',
+        'student'   => '/student/dashboard.php',
         'registrar' => '/registrar/dashboard.php',
-        'admin' => '/admin/dashboard.php',
+        'admin'     => '/admin/dashboard.php',
     ];
 
     if (isset($map[$role])) {
@@ -32,7 +32,7 @@ function redirect_by_role($role) {
 
 /*
 |--------------------------------------------------------------------------
-| REDIRECT IF ALREADY LOGGED IN
+| AUTO REDIRECT IF ALREADY LOGGED IN
 |--------------------------------------------------------------------------
 */
 if (!empty($_SESSION['user_id']) && !empty($_SESSION['role'])) {
@@ -46,65 +46,56 @@ if (!empty($_SESSION['user_id']) && !empty($_SESSION['role'])) {
 */
 if (isset($_POST['login'])) {
 
-    $student_number = trim($_POST['student_number'] ?? '');
+    $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    $stmt = $conn->prepare("
-        SELECT user_id, student_number, password, role, first_name, last_name, must_change_password, account_status
-        FROM users
-        WHERE student_number = ?
-        LIMIT 1
-    ");
+    if ($username === '' || $password === '') {
+        $error = "Please fill in all fields.";
+    } else {
 
-    $stmt->bind_param("s", $student_number);
-    $stmt->execute();
-    $result = $stmt->get_result();
+        $stmt = $conn->prepare("
+            SELECT user_id, student_number, password, role, first_name, last_name, must_change_password, account_status
+            FROM users
+            WHERE student_number = ?
+            LIMIT 1
+        ");
 
-    if ($result && $result->num_rows === 1) {
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-        $user = $result->fetch_assoc();
+        if ($result && $result->num_rows === 1) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | ACCOUNT STATUS CHECK (IMPORTANT SECURITY FIX)
-        |--------------------------------------------------------------------------
-        */
-        if ($user['account_status'] !== 'active') {
-            $error = "Account is disabled.";
-        }
+            $user = $result->fetch_assoc();
 
-        /*
-        |--------------------------------------------------------------------------
-        | PASSWORD CHECK
-        |--------------------------------------------------------------------------
-        */
-        elseif (password_verify($password, $user['password'])) {
+            if ($user['account_status'] !== 'active') {
+                $error = "Account is disabled.";
+            }
+            elseif (password_verify($password, $user['password'])) {
 
-            session_regenerate_id(true);
+                session_regenerate_id(true);
 
-            $_SESSION['user_id'] = $user['user_id'];
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
-            $_SESSION['must_change_password'] = (int)$user['must_change_password'];
+                $_SESSION['user_id'] = $user['user_id'];
+                $_SESSION['role'] = $user['role'];
+                $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
+                $_SESSION['must_change_password'] = (int)$user['must_change_password'];
 
-            /*
-            |--------------------------------------------------------------------------
-            | FORCE PASSWORD CHANGE
-            |--------------------------------------------------------------------------
-            */
-            if ($_SESSION['must_change_password'] === 1) {
-                header("Location: /change_password.php");
-                exit();
+                if ($_SESSION['must_change_password'] === 1) {
+                    header("Location: /change_password.php");
+                    exit();
+                }
+
+                redirect_by_role($user['role']);
+
+            } else {
+                $error = "Incorrect password.";
             }
 
-            redirect_by_role($user['role']);
-
         } else {
-            $error = "Incorrect password.";
+            $error = "User not found.";
         }
 
-    } else {
-        $error = "User not found.";
+        $stmt->close();
     }
 }
 ?>
@@ -129,7 +120,7 @@ if (isset($_POST['login'])) {
         <form method="POST">
 
             <label>Username</label>
-            <input type="text" name="Username" required>
+            <input type="text" name="username" required>
 
             <label>Password</label>
             <input type="password" name="password" required>
