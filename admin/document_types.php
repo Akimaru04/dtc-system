@@ -5,7 +5,7 @@ require_once("../config/Database.php");
 $conn = Database::getInstance()->conn;
 
 require_once('../middleware/auth.php');
-require_once('../includes/flash.php'); // ✅ FIXED (standardized)
+require_once('../includes/flash.php');
 
 $user = require_role(['admin']);
 
@@ -29,11 +29,6 @@ if (!$stmt) {
 $stmt->execute();
 $result = $stmt->get_result();
 
-/*
-|--------------------------------------------------------------------------
-| SAFETY CHECK
-|--------------------------------------------------------------------------
-*/
 if (!$result) {
     set_flash("error", "Failed to load document types.");
     header("Location: dashboard.php");
@@ -56,11 +51,8 @@ if (!$result) {
 
 <div class="container">
 
-    <?php display_flash(); ?> <!-- ✅ CLEAN STANDARD -->
-        <div class="alert <?= htmlspecialchars($flash['type']) ?>">
-            <?= htmlspecialchars($flash['message']) ?>
-        </div>
-    <?php ?>
+    <!-- FLASH -->
+    <?php display_flash(); ?>
 
     <!-- HEADER -->
     <div class="card">
@@ -108,10 +100,10 @@ if (!$result) {
                         <?php while ($row = $result->fetch_assoc()): ?>
                             <tr>
                                 <td>
-                                    <b><?= htmlspecialchars($row['document_name']) ?></b>
+                                    <b><?= htmlspecialchars($row['document_name'] ?? '') ?></b>
                                 </td>
                                 <td>
-                                    <?= htmlspecialchars($row['description']) ?>
+                                    <?= htmlspecialchars($row['description'] ?? 'No description') ?>
                                 </td>
                             </tr>
                         <?php endwhile; ?>

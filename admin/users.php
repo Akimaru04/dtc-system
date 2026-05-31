@@ -3,9 +3,9 @@ session_start();
 
 require_once("../config/Database.php");
 $conn = Database::getInstance()->conn;
-
+require_once('../includes/csrf.php');
 require_once('../middleware/auth.php');
-require_once('../config/flash.php'); // ✅ FIXED (standardized)
+require_once('../includes/flash.php'); // ✅ FIXED (standardized)
 
 $user = require_role(['admin']);
 
