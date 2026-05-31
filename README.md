@@ -2,6 +2,7 @@ DTC Student System
 A web-based Student Management System developed as part of academic requirements for ICCT Colleges.
 
 📌 Overview
+
 The DTC Student System is a PHP and MySQL-based web application designed to manage student records and process document requests.
 It supports multiple user roles with role-based access control to ensure secure and structured workflows.
 
