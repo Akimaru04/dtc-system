@@ -27,21 +27,21 @@ Student – Submits and tracks document requests
 
 🛠️ Tech Stack
 
-PHP (Core PHP, no framework)
-MySQL
-HTML, CSS, JavaScript
-XAMPP / Localhost environment
+- PHP (Core PHP, no framework)
+- MySQL
+- HTML, CSS, JavaScript
+- XAMPP / Localhost environment
 
 📂 Project Structure
 
-/admin – Admin dashboard and management tools
-/student – Student portal and request tracking
-/registrar – Document processing dashboard
-/assets – CSS, JavaScript, and frontend resources
-/config – Database connection and configuration
-/middleware – Authentication, CSRF, and access control
-/includes – Reusable components (navbar, flash, etc.)
-/database – SQL schema and database dump
+- /admin – Admin dashboard and management tools
+- /student – Student portal and request tracking
+- /registrar – Document processing dashboard
+- /assets – CSS, JavaScript, and frontend resources
+- /config – Database connection and configuration
+- /middleware – Authentication, CSRF, and access control
+- /includes – Reusable components (navbar, flash, etc.)
+- /database – SQL schema and database dump
 
 ⚙️ Setup Instructions
 1. Clone the repository
