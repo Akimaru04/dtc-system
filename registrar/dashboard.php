@@ -1,7 +1,9 @@
 <?php
 session_start();
 
-include("../config/connect.php");
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
+
 include("../middleware/auth.php");
 include("../config/request_statuses.php");
 
@@ -9,10 +11,16 @@ $user = require_role(['registrar']);
 
 /*
 |--------------------------------------------------------------------------
-| CSRF PROTECTION
+| CSRF TOKEN (SAFE + CONSISTENT)
 |--------------------------------------------------------------------------
 */
-$_SESSION['csrf_token'] = $_SESSION['csrf_token'] ?? bin2hex(random_bytes(32));
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function csrf_token() {
+    return $_SESSION['csrf_token'];
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -21,25 +29,28 @@ $_SESSION['csrf_token'] = $_SESSION['csrf_token'] ?? bin2hex(random_bytes(32));
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $request_id = intval($_POST['request_id'] ?? 0);
+    $request_id = filter_input(INPUT_POST, 'request_id', FILTER_VALIDATE_INT);
     $new_status = $_POST['status'] ?? '';
     $csrf_token = $_POST['csrf_token'] ?? '';
 
-    if (!hash_equals($_SESSION['csrf_token'], $csrf_token)) {
-        die("Invalid CSRF token");
+    if (
+        !$request_id ||
+        !in_array($new_status, $REQUEST_STATUSES, true) ||
+        !hash_equals($_SESSION['csrf_token'], $csrf_token)
+    ) {
+        header("Location: registrar_dashboard.php");
+        exit();
     }
 
-    if ($request_id > 0 && in_array($new_status, $REQUEST_STATUSES, true)) {
+    $stmt = $conn->prepare("
+        UPDATE document_requests
+        SET status = ?
+        WHERE request_id = ?
+    ");
 
-        $stmt = $conn->prepare("
-            UPDATE document_requests
-            SET status = ?
-            WHERE request_id = ?
-        ");
-
-        $stmt->bind_param("si", $new_status, $request_id);
-        $stmt->execute();
-    }
+    $stmt->bind_param("si", $new_status, $request_id);
+    $stmt->execute();
+    $stmt->close();
 
     header("Location: registrar_dashboard.php");
     exit();
@@ -50,10 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 | FILTERS + PAGINATION
 |--------------------------------------------------------------------------
 */
-$status_filter = $_GET['status'] ?? '';
+$status_filter = trim($_GET['status'] ?? '');
 $search = trim($_GET['search'] ?? '');
 
-$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$page = max(1, (int)($_GET['page'] ?? 1));
 $limit = 10;
 $offset = ($page - 1) * $limit;
 
@@ -81,12 +92,14 @@ $sql = "
 $params = [];
 $types = "";
 
+/* FILTER: STATUS */
 if ($status_filter !== '') {
     $sql .= " AND dr.status = ?";
     $params[] = $status_filter;
     $types .= "s";
 }
 
+/* FILTER: SEARCH */
 if ($search !== '') {
 
     $sql .= " AND (
@@ -106,7 +119,7 @@ if ($search !== '') {
 
 /*
 |--------------------------------------------------------------------------
-| COUNT QUERY (FIXED + CONSISTENT)
+| COUNT QUERY
 |--------------------------------------------------------------------------
 */
 $count_sql = "
@@ -150,7 +163,8 @@ if (!empty($count_params)) {
 }
 
 $count_stmt->execute();
-$total_rows = $count_stmt->get_result()->fetch_assoc()['total'];
+$total_rows = $count_stmt->get_result()->fetch_assoc()['total'] ?? 0;
+$count_stmt->close();
 
 $total_pages = max(1, ceil($total_rows / $limit));
 
@@ -160,7 +174,6 @@ $total_pages = max(1, ceil($total_rows / $limit));
 |--------------------------------------------------------------------------
 */
 $sql .= " ORDER BY dr.request_date DESC LIMIT ? OFFSET ?";
-
 $params[] = $limit;
 $params[] = $offset;
 $types .= "ii";
@@ -176,22 +189,21 @@ $result = $stmt->get_result();
 
 /*
 |--------------------------------------------------------------------------
-| STATUS COUNTS (OPTIMIZED - SINGLE QUERY)
+| STATUS COUNTS (SAFE SINGLE QUERY)
 |--------------------------------------------------------------------------
 */
-$counts = [];
-foreach ($REQUEST_STATUSES as $s) {
-    $counts[$s] = 0;
-}
+$counts = array_fill_keys($REQUEST_STATUSES, 0);
 
-$stats_stmt = $conn->query("
+$stats = $conn->query("
     SELECT status, COUNT(*) as total
     FROM document_requests
     GROUP BY status
 ");
 
-while ($row = $stats_stmt->fetch_assoc()) {
-    $counts[$row['status']] = $row['total'];
+if ($stats) {
+    while ($row = $stats->fetch_assoc()) {
+        $counts[$row['status']] = $row['total'];
+    }
 }
 ?>
 
@@ -222,19 +234,19 @@ while ($row = $stats_stmt->fetch_assoc()) {
 
         <div class="grid-3">
 
-            <?php foreach ($counts as $label => $count) { ?>
+            <?php foreach ($counts as $label => $count): ?>
                 <div class="card status-box">
                     <b><?= ucwords(str_replace('_', ' ', $label)) ?></b>
                     <div style="font-size:20px; margin-top:5px;">
-                        <?= $count ?>
+                        <?= (int)$count ?>
                     </div>
                 </div>
-            <?php } ?>
+            <?php endforeach; ?>
 
         </div>
     </div>
 
-    <!-- FILTER BAR -->
+    <!-- FILTER -->
     <div class="card filter-bar">
 
         <form method="GET" class="filter-form">
@@ -249,11 +261,11 @@ while ($row = $stats_stmt->fetch_assoc()) {
             <select name="status">
                 <option value="">All Status</option>
 
-                <?php foreach ($REQUEST_STATUSES as $s) { ?>
+                <?php foreach ($REQUEST_STATUSES as $s): ?>
                     <option value="<?= htmlspecialchars($s) ?>" <?= $status_filter === $s ? 'selected' : '' ?>>
                         <?= ucwords(str_replace('_', ' ', $s)) ?>
                     </option>
-                <?php } ?>
+                <?php endforeach; ?>
 
             </select>
 
@@ -284,13 +296,12 @@ while ($row = $stats_stmt->fetch_assoc()) {
 
                 <tbody>
 
-                <?php if ($result->num_rows > 0) { ?>
+                <?php if ($result->num_rows > 0): ?>
 
-                    <?php while ($row = $result->fetch_assoc()) { ?>
-
+                    <?php while ($row = $result->fetch_assoc()): ?>
                         <tr>
 
-                            <td><?= $row['request_id'] ?></td>
+                            <td><?= (int)$row['request_id'] ?></td>
 
                             <td><b><?= htmlspecialchars($row['tracking_code']) ?></b></td>
 
@@ -314,15 +325,15 @@ while ($row = $stats_stmt->fetch_assoc()) {
                             <td>
                                 <form method="POST" class="action-form">
 
-                                    <input type="hidden" name="request_id" value="<?= $row['request_id'] ?>">
-                                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                                    <input type="hidden" name="request_id" value="<?= (int)$row['request_id'] ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
 
                                     <select name="status">
-                                        <?php foreach ($REQUEST_STATUSES as $s) { ?>
+                                        <?php foreach ($REQUEST_STATUSES as $s): ?>
                                             <option value="<?= htmlspecialchars($s) ?>" <?= $row['status'] === $s ? 'selected' : '' ?>>
                                                 <?= ucwords(str_replace('_', ' ', $s)) ?>
                                             </option>
-                                        <?php } ?>
+                                        <?php endforeach; ?>
                                     </select>
 
                                     <button type="submit" class="btn btn-success">
@@ -333,10 +344,9 @@ while ($row = $stats_stmt->fetch_assoc()) {
                             </td>
 
                         </tr>
+                    <?php endwhile; ?>
 
-                    <?php } ?>
-
-                <?php } else { ?>
+                <?php else: ?>
 
                     <tr>
                         <td colspan="7" class="empty-state">
@@ -344,7 +354,7 @@ while ($row = $stats_stmt->fetch_assoc()) {
                         </td>
                     </tr>
 
-                <?php } ?>
+                <?php endif; ?>
 
                 </tbody>
 
@@ -357,19 +367,19 @@ while ($row = $stats_stmt->fetch_assoc()) {
     <!-- PAGINATION -->
     <div class="pagination">
 
-        <?php if ($page > 1) { ?>
+        <?php if ($page > 1): ?>
             <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status_filter) ?>&search=<?= urlencode($search) ?>">
                 Prev
             </a>
-        <?php } ?>
+        <?php endif; ?>
 
         <span>Page <?= $page ?> of <?= $total_pages ?></span>
 
-        <?php if ($page < $total_pages) { ?>
+        <?php if ($page < $total_pages): ?>
             <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status_filter) ?>&search=<?= urlencode($search) ?>">
                 Next
             </a>
-        <?php } ?>
+        <?php endif; ?>
 
     </div>
 

@@ -1,7 +1,8 @@
 <?php
 session_start();
 
-include("../config/connect.php");
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
 include("../middleware/auth.php");
 
 // student-only access
