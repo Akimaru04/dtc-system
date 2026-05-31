@@ -26,12 +26,14 @@ Student – Submits and tracks document requests
 - Flash message system for user feedback
 
 🛠️ Tech Stack
+
 PHP (Core PHP, no framework)
 MySQL
 HTML, CSS, JavaScript
 XAMPP / Localhost environment
 
 📂 Project Structure
+
 /admin – Admin dashboard and management tools
 /student – Student portal and request tracking
 /registrar – Document processing dashboard
