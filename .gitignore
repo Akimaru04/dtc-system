@@ -1,34 +1,35 @@
-# CakePHP 3
+# =========================
+# SYSTEM FILES
+# =========================
+.DS_Store
+Thumbs.db
 
-/vendor/*
-/config/app.php
-
-/tmp/cache/models/*
-!/tmp/cache/models/empty
-/tmp/cache/persistent/*
-!/tmp/cache/persistent/empty
-/tmp/cache/views/*
-!/tmp/cache/views/empty
-/tmp/sessions/*
-!/tmp/sessions/empty
-/tmp/tests/*
-!/tmp/tests/empty
-
-/logs/*
-!/logs/empty
-
-# CakePHP 2
-
-/app/tmp/*
-/app/Config/core.php
-/app/Config/database.php
-/vendors/*
-
-
+# =========================
 # IDE
+# =========================
 .vscode/
 .idea/
 
-# OS
-.DS_Store
-Thumbs.db
+# =========================
+# ENV / CONFIG SENSITIVE FILES
+# =========================
+.env
+
+# =========================
+# LOGS
+# =========================
+logs/
+*.log
+
+# =========================
+# CACHE / TEMP (if used)
+# =========================
+tmp/
+cache/
+sessions/
+
+# =========================
+# UPLOADS (if you have file uploads)
+# =========================
+uploads/
+storage/
