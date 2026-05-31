@@ -42,8 +42,7 @@ XAMPP / Localhost environment
 /database – SQL schema and database dump
 
 ⚙️ Setup Instructions
-1. Clone the repository:
-git clone https://github.com/your-username/dtc-system.git
+1. Clone the repository
 
 2. Move the project to your local server:
 - Place inside htdocs (XAMPP) or equivalent
@@ -59,8 +58,8 @@ MySQL
 5. Configure database connection:
 - Open /config/Database.php
 - Update credentials if needed
-6. Run the project:
-http://localhost/dtc-system
+6. Run the project
+
 
 🔐 Security Features
 - Session-based authentication
