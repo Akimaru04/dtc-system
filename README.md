@@ -78,9 +78,7 @@ Developed for academic compliance (ICCT Colleges requirements)
 Not intended for production deployment without improvements
 
 📄 License
-
 This project is licensed under the MIT License.
 
 👨‍💻 Developer
-
 Jethro Manuel
