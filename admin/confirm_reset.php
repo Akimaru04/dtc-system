@@ -1,9 +1,12 @@
 <?php
 session_start();
 
-include('../config/connect.php');
-include('../middleware/auth.php');
-include('../includes/csrf.php');
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
+
+require_once('../middleware/auth.php');
+require_once('../includes/csrf.php');
+require_once('../includes/flash.php'); // ✅ REQUIRED
 
 $user = require_role(['admin']);
 
@@ -13,25 +16,18 @@ $user = require_role(['admin']);
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    set_flash("Invalid request method.", "error");
+
+    set_flash("error", "Invalid request method.");
     header("Location: users.php");
     exit();
 }
 
 /*
 |--------------------------------------------------------------------------
-| CSRF PROTECTION
+| CSRF CHECK
 |--------------------------------------------------------------------------
 */
-if (
-    empty($_POST['csrf_token']) ||
-    empty($_SESSION['csrf_token']) ||
-    !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
-) {
-    set_flash("Security validation failed.", "error");
-    header("Location: users.php");
-    exit();
-}
+verify_csrf();
 
 /*
 |--------------------------------------------------------------------------
@@ -41,8 +37,23 @@ if (
 $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 
 if (!$id) {
-    set_flash("Invalid request.", "error");
+
+    set_flash("error", "Invalid request.");
     header("Location: users.php");
+    exit();
+}
+
+/*
+|--------------------------------------------------------------------------
+| SESSION SAFETY CHECK
+|--------------------------------------------------------------------------
+*/
+$current_user_id = $_SESSION['user_id'] ?? null;
+
+if (!$current_user_id) {
+
+    set_flash("error", "Session expired. Please login again.");
+    header("Location: ../index.php");
     exit();
 }
 
@@ -51,8 +62,9 @@ if (!$id) {
 | PREVENT SELF RESET
 |--------------------------------------------------------------------------
 */
-if ($id == $_SESSION['user_id']) {
-    set_flash("You cannot reset your own password.", "error");
+if ($id == $current_user_id) {
+
+    set_flash("error", "You cannot reset your own password.");
     header("Location: users.php");
     exit();
 }
@@ -77,16 +89,35 @@ $stmt = $conn->prepare("
     LIMIT 1
 ");
 
-$stmt->bind_param("si", $hashed, $id);
-$stmt->execute();
+if (!$stmt) {
 
-if ($stmt->affected_rows > 0) {
-    set_flash("Password reset successful. Temporary password: $temp_password", "success");
-} else {
-    set_flash("No user was updated.", "error");
+    set_flash("error", "Database error.");
+    header("Location: users.php");
+    exit();
 }
+
+$stmt->bind_param("si", $hashed, $id);
+$success = $stmt->execute();
 
 $stmt->close();
 
+/*
+|--------------------------------------------------------------------------
+| RESULT HANDLING
+|--------------------------------------------------------------------------
+*/
+if ($success) {
+
+    set_flash(
+        "success",
+        "Password reset successful. Temporary password: " . $temp_password
+    );
+
+} else {
+
+    set_flash("error", "Password reset failed.");
+}
+
 header("Location: users.php");
 exit();
+?>

@@ -1,33 +1,41 @@
 <?php
 session_start();
 
-include('../config/connect.php');
-include('../middleware/auth.php');
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
+
+require_once('../middleware/auth.php');
+require_once('../includes/flash.php'); // ✅ FIXED (standardized)
 
 $user = require_role(['admin']);
-
-/*
-|--------------------------------------------------------------------------
-| FLASH SYSTEM
-|--------------------------------------------------------------------------
-*/
-include('../includes/flash.php');
 
 /*
 |--------------------------------------------------------------------------
 | FETCH DOCUMENT TYPES
 |--------------------------------------------------------------------------
 */
-$result = mysqli_query(
-    $conn,
-    "SELECT document_type_id, document_name, description 
-     FROM document_types 
-     ORDER BY document_type_id DESC"
-);
+$stmt = $conn->prepare("
+    SELECT document_type_id, document_name, description 
+    FROM document_types 
+    ORDER BY document_type_id DESC
+");
 
-/* SAFE FAILOVER */
+if (!$stmt) {
+    set_flash("error", "Failed to prepare query.");
+    header("Location: dashboard.php");
+    exit();
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
+
+/*
+|--------------------------------------------------------------------------
+| SAFETY CHECK
+|--------------------------------------------------------------------------
+*/
 if (!$result) {
-    set_flash("Failed to load document types.", "error");
+    set_flash("error", "Failed to load document types.");
     header("Location: dashboard.php");
     exit();
 }
@@ -48,12 +56,11 @@ if (!$result) {
 
 <div class="container">
 
-    <!-- FLASH -->
-    <?php if ($flash = get_flash()): ?>
+    <?php display_flash(); ?> <!-- ✅ CLEAN STANDARD -->
         <div class="alert <?= htmlspecialchars($flash['type']) ?>">
             <?= htmlspecialchars($flash['message']) ?>
         </div>
-    <?php endif; ?>
+    <?php ?>
 
     <!-- HEADER -->
     <div class="card">
@@ -90,7 +97,7 @@ if (!$result) {
 
                 <tbody>
 
-                    <?php if (mysqli_num_rows($result) === 0): ?>
+                    <?php if ($result->num_rows === 0): ?>
                         <tr>
                             <td colspan="2" class="empty-state">
                                 No document types found
@@ -98,7 +105,7 @@ if (!$result) {
                         </tr>
                     <?php else: ?>
 
-                        <?php while ($row = mysqli_fetch_assoc($result)): ?>
+                        <?php while ($row = $result->fetch_assoc()): ?>
                             <tr>
                                 <td>
                                     <b><?= htmlspecialchars($row['document_name']) ?></b>
@@ -123,3 +130,5 @@ if (!$result) {
 
 </body>
 </html>
+
+<?php $stmt->close(); ?>

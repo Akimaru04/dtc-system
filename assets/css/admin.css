@@ -1,4 +1,11 @@
 /* =========================
+   GLOBAL SAFETY
+========================= */
+* {
+    box-sizing: border-box;
+}
+
+/* =========================
    ADMIN HEADER
 ========================= */
 .admin-header h1 {
@@ -10,7 +17,7 @@
 }
 
 /* =========================
-   ADMIN GRID (DASHBOARD CARDS)
+   ADMIN GRID
 ========================= */
 .admin-grid {
     display: grid;
@@ -18,20 +25,21 @@
     gap: 15px;
 }
 
-/* CARD LAYOUT */
+/* CARD */
 .admin-card {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     min-height: 180px;
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .admin-card:hover {
     transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
 
-/* BUTTON INSIDE CARD */
+/* BUTTON */
 .admin-card .btn {
     margin-top: auto;
     width: 100%;
@@ -54,10 +62,25 @@
 .reg-table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 14px;
+}
+
+.reg-table th,
+.reg-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
 }
 
 .reg-table th {
     text-align: left;
+    font-weight: 600;
+    color: #374151;
+    background: #f9fafb;
+}
+
+.reg-table tbody tr:hover {
+    background: #f3f4f6;
 }
 
 /* =========================
@@ -70,6 +93,11 @@
     align-items: center;
 }
 
+.action-cell .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
 /* =========================
    EMPTY STATE
 ========================= */
@@ -77,14 +105,6 @@
     text-align: center;
     padding: 20px;
     color: #6b7280;
-}
-
-/* =========================
-   STATUS BOX
-========================= */
-.status-box {
-    text-align: center;
-    font-weight: 500;
 }
 
 /* =========================
@@ -96,10 +116,34 @@
     gap: 12px;
 }
 
-/* button spans full width */
+/* full width button */
 .form-grid button {
     grid-column: 1 / -1;
     height: 42px;
+}
+
+/* inputs focus improvement */
+.form-grid input,
+.form-grid select {
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+    transition: border 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-grid input:focus,
+.form-grid select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+
+/* disabled fields (IMPORTANT for edit_user fix) */
+.form-grid input:disabled,
+.form-grid select:disabled {
+    background: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
 }
 
 /* =========================
@@ -110,16 +154,32 @@
     border-radius: 6px;
     margin: 10px 0;
     font-size: 14px;
+    border-left: 4px solid transparent;
 }
 
+/* success */
+.alert.success {
+    background: #dcfce7;
+    color: #166534;
+    border-left-color: #22c55e;
+}
+
+/* error */
+.alert.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-left-color: #ef4444;
+}
+
+/* warning */
 .alert.warning {
     background: #fff3cd;
     color: #856404;
-    border: 1px solid #ffeeba;
+    border-left-color: #f59e0b;
 }
 
 /* =========================
-   ROLE BADGES (IMPORTANT FIX)
+   BADGES
 ========================= */
 .badge {
     padding: 4px 8px;
@@ -128,7 +188,7 @@
     font-weight: 600;
 }
 
-/* safe role colors */
+/* roles */
 .badge.admin {
     background: #fee2e2;
     color: #991b1b;

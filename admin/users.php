@@ -1,8 +1,11 @@
 <?php
 session_start();
 
-include('../config/connect.php');
-include('../middleware/auth.php');
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
+
+require_once('../middleware/auth.php');
+require_once('../config/flash.php'); // ✅ FIXED (standardized)
 
 $user = require_role(['admin']);
 
@@ -10,10 +13,58 @@ $search = trim($_GET['search'] ?? '');
 $page = max(1, (int)($_GET['page'] ?? 1));
 $limit = 10;
 $offset = ($page - 1) * $limit;
+?>
 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Management</title>
+
+    <link rel="stylesheet" href="../assets/css/global.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+</head>
+
+<body>
+
+<?php include('../includes/navbar.php'); ?>
+
+<div class="container">
+
+    <?php display_flash(); ?> <!-- ✅ CLEAN STANDARD -->
+    <!-- HEADER -->
+    <div class="card admin-header">
+        <h1>User Management</h1>
+        <p>Manage system users and roles</p>
+    </div>
+
+    <!-- FLASH MESSAGE -->
+    <?php if ($flash = get_flash()): ?>
+        <div class="alert <?= htmlspecialchars($flash['type']) ?>">
+            <?= htmlspecialchars($flash['message']) ?>
+        </div>
+    <?php endif; ?>
+
+    <!-- ACTION BAR -->
+    <div class="card action-bar">
+        <a href="dashboard.php" class="btn btn-secondary">Back</a>
+        <a href="add_user.php" class="btn btn-primary">+ Add User</a>
+    </div>
+
+    <!-- SEARCH -->
+    <div class="card">
+        <form method="GET">
+            <input type="text"
+                   name="search"
+                   placeholder="Search name, student number, role..."
+                   value="<?= htmlspecialchars($search) ?>">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+    </div>
+
+<?php
 /*
 |--------------------------------------------------------------------------
-| BASE QUERY
+| QUERY
 |--------------------------------------------------------------------------
 */
 $sql = "
@@ -22,22 +73,17 @@ $sql = "
     WHERE 1=1
 ";
 
-$count_sql = "
-    SELECT COUNT(*) as total
-    FROM users
-    WHERE 1=1
-";
+$count_sql = "SELECT COUNT(*) as total FROM users WHERE 1=1";
 
 $params = [];
 $types = "";
 
 /*
 |--------------------------------------------------------------------------
-| SEARCH FILTER
+| SEARCH
 |--------------------------------------------------------------------------
 */
 if ($search !== '') {
-
     $sql .= " AND (
         student_number LIKE ?
         OR first_name LIKE ?
@@ -62,7 +108,7 @@ if ($search !== '') {
 
 /*
 |--------------------------------------------------------------------------
-| COUNT QUERY (SAFE)
+| COUNT
 |--------------------------------------------------------------------------
 */
 $count_stmt = $conn->prepare($count_sql);
@@ -79,7 +125,7 @@ $total_pages = max(1, ceil($total_rows / $limit));
 
 /*
 |--------------------------------------------------------------------------
-| MAIN QUERY (PAGINATION)
+| MAIN QUERY
 |--------------------------------------------------------------------------
 */
 $sql .= " ORDER BY user_id DESC LIMIT ? OFFSET ?";
@@ -89,47 +135,15 @@ $params[] = $offset;
 $types .= "ii";
 
 $stmt = $conn->prepare($sql);
-$stmt->bind_param($types, ...$params);
+if (!empty($types)) {
+    $stmt->bind_param($types, ...$params);
+}
 $stmt->execute();
 
 $result = $stmt->get_result();
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>User Management</title>
-
-    <link rel="stylesheet" href="../assets/css/global.css">
-    <link rel="stylesheet" href="../assets/css/admin.css">
-</head>
-
-<body>
-
-<?php include('../includes/navbar.php'); ?>
-
-<div class="container">
-
-    <div class="card admin-header">
-        <h1>User Management</h1>
-        <p>Manage system users and roles</p>
-    </div>
-
-    <div class="card action-bar">
-        <a href="dashboard.php" class="btn btn-secondary">Back</a>
-        <a href="add_user.php" class="btn btn-primary">+ Add User</a>
-    </div>
-
-    <div class="card">
-        <form method="GET">
-            <input type="text"
-                   name="search"
-                   placeholder="Search name, student number, role..."
-                   value="<?= htmlspecialchars($search) ?>">
-            <button type="submit" class="btn btn-primary">Search</button>
-        </form>
-    </div>
-
+    <!-- TABLE -->
     <div class="card">
 
         <table class="reg-table">
@@ -156,7 +170,6 @@ $result = $stmt->get_result();
 
                     <tr>
                         <td><?= (int)$row['user_id'] ?></td>
-
                         <td><?= htmlspecialchars($row['student_number']) ?></td>
 
                         <td>
@@ -171,20 +184,33 @@ $result = $stmt->get_result();
 
                         <td class="action-cell">
 
+                            <!-- EDIT (SAFE GET) -->
                             <a href="edit_user.php?id=<?= (int)$row['user_id'] ?>"
-                               class="btn btn-primary">Edit</a>
-
-                            <a href="reset_password.php?id=<?= (int)$row['user_id'] ?>"
-                               class="btn btn-secondary"
-                               onclick="return confirm('Reset password for this user?')">
-                               Reset
+                               class="btn btn-primary">
+                                Edit
                             </a>
 
-                            <a href="delete_user.php?id=<?= (int)$row['user_id'] ?>"
-                               class="btn btn-danger"
-                               onclick="return confirm('Delete this user? This cannot be undone.')">
-                               Delete
-                            </a>
+                            <!-- RESET PASSWORD (POST + CSRF) -->
+                            <form method="POST" action="confirm_reset.php" style="display:inline;">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="id" value="<?= (int)$row['user_id'] ?>">
+                                <button type="submit"
+                                        class="btn btn-secondary"
+                                        onclick="return confirm('Reset password for this user?')">
+                                    Reset
+                                </button>
+                            </form>
+
+                            <!-- DELETE USER (POST + CSRF) -->
+                            <form method="POST" action="confirm_delete.php" style="display:inline;">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="id" value="<?= (int)$row['user_id'] ?>">
+                                <button type="submit"
+                                        class="btn btn-danger"
+                                        onclick="return confirm('Delete this user? This cannot be undone.')">
+                                    Delete
+                                </button>
+                            </form>
 
                         </td>
                     </tr>
@@ -197,6 +223,7 @@ $result = $stmt->get_result();
 
     </div>
 
+    <!-- PAGINATION -->
     <div class="card pagination">
 
         <?php for ($i = 1; $i <= $total_pages; $i++): ?>

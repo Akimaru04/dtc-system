@@ -9,15 +9,27 @@ $user = require_role(['registrar']);
 
 /*
 |--------------------------------------------------------------------------
-| STATUS UPDATE
+| CSRF PROTECTION
+|--------------------------------------------------------------------------
+*/
+$_SESSION['csrf_token'] = $_SESSION['csrf_token'] ?? bin2hex(random_bytes(32));
+
+/*
+|--------------------------------------------------------------------------
+| STATUS UPDATE (POST)
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $request_id = intval($_POST['request_id'] ?? 0);
     $new_status = $_POST['status'] ?? '';
+    $csrf_token = $_POST['csrf_token'] ?? '';
 
-    if ($request_id > 0 && in_array($new_status, $REQUEST_STATUSES)) {
+    if (!hash_equals($_SESSION['csrf_token'], $csrf_token)) {
+        die("Invalid CSRF token");
+    }
+
+    if ($request_id > 0 && in_array($new_status, $REQUEST_STATUSES, true)) {
 
         $stmt = $conn->prepare("
             UPDATE document_requests
@@ -94,13 +106,14 @@ if ($search !== '') {
 
 /*
 |--------------------------------------------------------------------------
-| COUNT QUERY
+| COUNT QUERY (FIXED + CONSISTENT)
 |--------------------------------------------------------------------------
 */
 $count_sql = "
     SELECT COUNT(*) as total
     FROM document_requests dr
     JOIN users u ON dr.user_id = u.user_id
+    JOIN document_types dt ON dr.document_type_id = dt.document_type_id
     WHERE 1=1
 ";
 
@@ -139,7 +152,7 @@ if (!empty($count_params)) {
 $count_stmt->execute();
 $total_rows = $count_stmt->get_result()->fetch_assoc()['total'];
 
-$total_pages = ceil($total_rows / $limit);
+$total_pages = max(1, ceil($total_rows / $limit));
 
 /*
 |--------------------------------------------------------------------------
@@ -163,23 +176,22 @@ $result = $stmt->get_result();
 
 /*
 |--------------------------------------------------------------------------
-| STATUS COUNTS
+| STATUS COUNTS (OPTIMIZED - SINGLE QUERY)
 |--------------------------------------------------------------------------
 */
 $counts = [];
+foreach ($REQUEST_STATUSES as $s) {
+    $counts[$s] = 0;
+}
 
-foreach ($REQUEST_STATUSES as $status) {
+$stats_stmt = $conn->query("
+    SELECT status, COUNT(*) as total
+    FROM document_requests
+    GROUP BY status
+");
 
-    $stmt = $conn->prepare("
-        SELECT COUNT(*) as total 
-        FROM document_requests 
-        WHERE status = ?
-    ");
-
-    $stmt->bind_param("s", $status);
-    $stmt->execute();
-
-    $counts[$status] = $stmt->get_result()->fetch_assoc()['total'];
+while ($row = $stats_stmt->fetch_assoc()) {
+    $counts[$row['status']] = $row['total'];
 }
 ?>
 
@@ -238,7 +250,7 @@ foreach ($REQUEST_STATUSES as $status) {
                 <option value="">All Status</option>
 
                 <?php foreach ($REQUEST_STATUSES as $s) { ?>
-                    <option value="<?= $s ?>" <?= $status_filter === $s ? 'selected' : '' ?>>
+                    <option value="<?= htmlspecialchars($s) ?>" <?= $status_filter === $s ? 'selected' : '' ?>>
                         <?= ucwords(str_replace('_', ' ', $s)) ?>
                     </option>
                 <?php } ?>
@@ -290,7 +302,7 @@ foreach ($REQUEST_STATUSES as $status) {
                             <td><?= htmlspecialchars($row['document_name']) ?></td>
 
                             <td>
-                                <span class="badge <?= $row['status'] ?>">
+                                <span class="badge <?= htmlspecialchars($row['status']) ?>">
                                     <?= ucwords(str_replace('_', ' ', $row['status'])) ?>
                                 </span>
                             </td>
@@ -301,11 +313,13 @@ foreach ($REQUEST_STATUSES as $status) {
 
                             <td>
                                 <form method="POST" class="action-form">
+
                                     <input type="hidden" name="request_id" value="<?= $row['request_id'] ?>">
+                                    <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
 
                                     <select name="status">
                                         <?php foreach ($REQUEST_STATUSES as $s) { ?>
-                                            <option value="<?= $s ?>" <?= $row['status'] === $s ? 'selected' : '' ?>>
+                                            <option value="<?= htmlspecialchars($s) ?>" <?= $row['status'] === $s ? 'selected' : '' ?>>
                                                 <?= ucwords(str_replace('_', ' ', $s)) ?>
                                             </option>
                                         <?php } ?>
@@ -314,6 +328,7 @@ foreach ($REQUEST_STATUSES as $status) {
                                     <button type="submit" class="btn btn-success">
                                         Update
                                     </button>
+
                                 </form>
                             </td>
 
@@ -343,7 +358,7 @@ foreach ($REQUEST_STATUSES as $status) {
     <div class="pagination">
 
         <?php if ($page > 1) { ?>
-            <a href="?page=<?= $page - 1 ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>">
+            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status_filter) ?>&search=<?= urlencode($search) ?>">
                 Prev
             </a>
         <?php } ?>
@@ -351,7 +366,7 @@ foreach ($REQUEST_STATUSES as $status) {
         <span>Page <?= $page ?> of <?= $total_pages ?></span>
 
         <?php if ($page < $total_pages) { ?>
-            <a href="?page=<?= $page + 1 ?>&status=<?= $status_filter ?>&search=<?= urlencode($search) ?>">
+            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status_filter) ?>&search=<?= urlencode($search) ?>">
                 Next
             </a>
         <?php } ?>

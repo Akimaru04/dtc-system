@@ -4,8 +4,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-include(__DIR__ . '/../config/connect.php');
-
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
 /*
 |--------------------------------------------------------------------------
 | BASE URL
@@ -38,9 +38,14 @@ function auth_user() {
     $user = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    if ($user) {
-        $user['name'] = $user['first_name'] . ' ' . $user['last_name'];
+    // Destroy invalid session if user no longer exists
+    if (!$user) {
+        session_unset();
+        session_destroy();
+        return null;
     }
+
+    $user['name'] = trim($user['first_name'] . ' ' . $user['last_name']);
 
     return $user;
 }
@@ -70,9 +75,8 @@ function require_role($roles = []) {
     $user = auth_required();
 
     if (!in_array($user['role'], (array)$roles, true)) {
-        session_destroy();
-        header("Location: " . BASE_URL . "index.php");
-        exit();
+        http_response_code(403);
+        die("403 Forbidden - Access denied.");
     }
 
     return $user;
@@ -88,37 +92,5 @@ function enforce_password_change($user) {
         header("Location: " . BASE_URL . "change_password.php");
         exit();
     }
-}
-
-/*
-|--------------------------------------------------------------------------
-| FLASH MESSAGE HELPERS
-|--------------------------------------------------------------------------
-*/
-function set_flash($message, $type = 'error') {
-    $_SESSION['flash_message'] = $message;
-    $_SESSION['flash_type'] = $type;
-}
-
-function get_flash() {
-    if (!empty($_SESSION['flash_message'])) {
-        $flash = [
-            'message' => $_SESSION['flash_message'],
-            'type' => $_SESSION['flash_type'] ?? 'info'
-        ];
-
-        unset($_SESSION['flash_message']);
-        unset($_SESSION['flash_type']);
-
-        return $flash;
-    }
-
-    return null;
-}
-
-function redirect_with_flash($url, $message, $type = 'error') {
-    set_flash($message, $type);
-    header("Location: $url");
-    exit();
 }
 ?>

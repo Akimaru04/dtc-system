@@ -1,18 +1,14 @@
 <?php
 session_start();
 
-include('../config/connect.php');
-include('../middleware/auth.php');
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
 
-/*
-|--------------------------------------------------------------------------
-| AUTH FIRST (MUST BE BEFORE ANY OUTPUT OR INCLUDES)
-|--------------------------------------------------------------------------
-*/
+require_once('../middleware/auth.php');
+require_once('../includes/flash.php'); // ✅ ADD THIS
+
 $user = require_role(['admin']);
 enforce_password_change($user);
-
-include('../includes/navbar.php');
 ?>
 
 <!DOCTYPE html>
@@ -26,12 +22,16 @@ include('../includes/navbar.php');
 
 <body>
 
+<?php include('../includes/navbar.php'); ?>
+
 <div class="container">
 
     <div class="card admin-header">
         <h1>Admin Dashboard</h1>
         <p>System administration and user management</p>
     </div>
+
+    <?php display_flash(); ?> <!-- ✅ ADD THIS -->
 
     <div class="card">
         <div class="admin-grid">

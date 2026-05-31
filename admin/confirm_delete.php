@@ -1,10 +1,12 @@
 <?php
 session_start();
 
-include('../config/connect.php');
-include('../middleware/auth.php');
-include('../includes/csrf.php');
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
 
+require_once('../middleware/auth.php');
+require_once('../includes/csrf.php');
+require_once('../includes/flash.php'); // ✅ REQUIRED
 
 $user = require_role(['admin']);
 
@@ -14,7 +16,8 @@ $user = require_role(['admin']);
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    set_flash("Invalid request method.", "error");
+
+    set_flash("error", "Invalid request method.");
     header("Location: users.php");
     exit();
 }
@@ -24,15 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 | CSRF CHECK
 |--------------------------------------------------------------------------
 */
-if (
-    empty($_POST['csrf_token']) ||
-    empty($_SESSION['csrf_token']) ||
-    !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
-) {
-    set_flash("Security validation failed.", "error");
-    header("Location: users.php");
-    exit();
-}
+verify_csrf();
 
 /*
 |--------------------------------------------------------------------------
@@ -42,7 +37,8 @@ if (
 $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 
 if (!$id) {
-    set_flash("Invalid request.", "error");
+
+    set_flash("error", "Invalid request.");
     header("Location: users.php");
     exit();
 }
@@ -52,8 +48,18 @@ if (!$id) {
 | PREVENT SELF DELETE
 |--------------------------------------------------------------------------
 */
-if ($id == $_SESSION['user_id']) {
-    set_flash("You cannot delete your own account.", "error");
+$current_user_id = $_SESSION['user_id'] ?? null;
+
+if (!$current_user_id) {
+
+    set_flash("error", "Session expired. Please login again.");
+    header("Location: ../index.php");
+    exit();
+}
+
+if ($id == $current_user_id) {
+
+    set_flash("error", "You cannot delete your own account.");
     header("Location: users.php");
     exit();
 }
@@ -64,16 +70,28 @@ if ($id == $_SESSION['user_id']) {
 |--------------------------------------------------------------------------
 */
 $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ? LIMIT 1");
+
+if (!$stmt) {
+
+    set_flash("error", "Database error.");
+    header("Location: users.php");
+    exit();
+}
+
 $stmt->bind_param("i", $id);
 $stmt->execute();
 
 if ($stmt->affected_rows > 0) {
-    set_flash("User deleted successfully.", "success");
+
+    set_flash("success", "User deleted successfully.");
+
 } else {
-    set_flash("Delete failed or user already removed.", "error");
+
+    set_flash("error", "Delete failed or user already removed.");
 }
 
 $stmt->close();
 
 header("Location: users.php");
 exit();
+?>

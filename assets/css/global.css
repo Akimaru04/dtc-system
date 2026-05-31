@@ -84,25 +84,24 @@ p {
 }
 
 /* =========================
-   TABLE SYSTEM (CLEANED)
+   TABLE SYSTEM
 ========================= */
 .table-wrapper {
     overflow-x: auto;
+    border-radius: 8px;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
     background: white;
-    border-radius: 8px;
-    overflow: hidden;
 }
 
 th, td {
     padding: 12px 14px;
     border-bottom: 1px solid #e5e7eb;
     text-align: left;
-    vertical-align: top;
+    vertical-align: middle;
 }
 
 th {
@@ -116,7 +115,7 @@ tr:hover {
 }
 
 /* =========================
-   BUTTON SYSTEM (FIXED CORE)
+   BUTTON SYSTEM
 ========================= */
 .btn {
     display: inline-flex;
@@ -129,74 +128,67 @@ tr:hover {
 
     cursor: pointer;
     border: none;
-    text-decoration: none;
 
     transition: 0.2s ease;
-
     white-space: nowrap;
 }
 
+/* hover feedback */
+.btn:hover {
+    filter: brightness(0.95);
+}
+
+/* disabled state (IMPORTANT) */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 /* BUTTON VARIANTS */
-.btn-primary {
-    background: #0d6efd;
-    color: white;
-}
+.btn-primary { background: #0d6efd; color: white; }
+.btn-secondary { background: #6c757d; color: white; }
+.btn-success { background: #198754; color: white; }
+.btn-danger { background: #dc3545; color: white; }
 
-.btn-primary:hover {
-    background: #0b5ed7;
-}
-
-.btn-secondary {
-    background: #6c757d;
-    color: white;
-}
-
-.btn-secondary:hover {
-    background: #5c636a;
-}
-
-.btn-success {
-    background: #198754;
-    color: white;
-}
-
-.btn-success:hover {
-    background: #157347;
-}
-
-.btn-danger {
-    background: #dc3545;
-    color: white;
-}
-
-.btn-danger:hover {
-    background: #bb2d3b;
-}
+.btn-primary:hover { background: #0b5ed7; }
+.btn-secondary:hover { background: #5c636a; }
+.btn-success:hover { background: #157347; }
+.btn-danger:hover { background: #bb2d3b; }
 
 /* =========================
-   FORM SYSTEM (UNIFIED)
+   FORM SYSTEM
 ========================= */
 input,
 select,
 textarea {
     width: 100%;
     padding: 10px;
-    margin-top: 6px;
-    margin-bottom: 12px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 14px;
     outline: none;
+    margin-bottom: 12px;
+    transition: 0.2s ease;
 }
 
+/* focus */
 input:focus,
 select:focus,
 textarea:focus {
     border-color: #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13,110,253,0.15);
+}
+
+/* disabled inputs */
+input:disabled,
+select:disabled,
+textarea:disabled {
+    background: #f3f4f6;
+    cursor: not-allowed;
 }
 
 /* =========================
-   BADGES (STATUS)
+   BADGES
 ========================= */
 .badge {
     display: inline-block;
@@ -240,12 +232,36 @@ textarea:focus {
 }
 
 /* =========================
-   UTILITIES
+   ALERT SYSTEM (GLOBAL)
 ========================= */
-.table-wrapper {
-    overflow-x: auto;
+.alert {
+    padding: 12px;
+    border-radius: 6px;
+    margin: 10px 0;
+    font-size: 14px;
 }
 
+.alert.success {
+    background: #dcfce7;
+    color: #166534;
+    border-left: 4px solid #22c55e;
+}
+
+.alert.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-left: 4px solid #ef4444;
+}
+
+.alert.warning {
+    background: #fff3cd;
+    color: #856404;
+    border-left: 4px solid #f59e0b;
+}
+
+/* =========================
+   UTILITIES
+========================= */
 .empty-state {
     text-align: center;
     padding: 20px;

@@ -2,7 +2,7 @@
 
 /*
 |--------------------------------------------------------------------------
-| CLEAN STRING INPUT
+| CLEAN INPUT (FOR GENERAL USE / OUTPUT ESCAPING)
 |--------------------------------------------------------------------------
 */
 function clean_input($data) {
@@ -11,9 +11,19 @@ function clean_input($data) {
 
 /*
 |--------------------------------------------------------------------------
-| SAFE LIKE SEARCH
+| ESCAPE FOR LIKE QUERY (SQL SAFE)
 |--------------------------------------------------------------------------
 */
-function like_input($data) {
-    return '%' . clean_input($data) . '%';
+function escape_like($conn, $data) {
+
+    $data = trim($data);
+
+    // Escape SQL LIKE special characters
+    $data = str_replace(
+        ['%', '_'],
+        ['\\%', '\\_'],
+        $data
+    );
+
+    return "%" . $conn->real_escape_string($data) . "%";
 }

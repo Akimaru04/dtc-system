@@ -3,7 +3,8 @@ session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-include(__DIR__ . '/config/connect.php');
+require_once("config/Database.php");
+$conn = Database::getInstance()->conn;
 
 $error = "";
 
@@ -22,11 +23,14 @@ function redirect_by_role($role) {
 
     if (isset($map[$role])) {
         header("Location: " . $map[$role]);
-    } else {
-        session_destroy();
-        header("Location: index.php");
+        exit();
     }
 
+    // Full session cleanup for safety
+    session_unset();
+    session_destroy();
+
+    header("Location: index.php");
     exit();
 }
 
@@ -71,15 +75,21 @@ if (isset($_POST['login'])) {
             if ($user['account_status'] !== 'active') {
                 $error = "Account is disabled.";
             }
+
             elseif (password_verify($password, $user['password'])) {
 
+                // Secure session regeneration
                 session_regenerate_id(true);
 
-                $_SESSION['user_id'] = $user['user_id'];
-                $_SESSION['role'] = $user['role'];
-                $_SESSION['name'] = $user['first_name'] . ' ' . $user['last_name'];
-                $_SESSION['must_change_password'] = (int)$user['must_change_password'];
+                // Centralized session assignment (cleaner)
+                $_SESSION = [
+                    'user_id' => $user['user_id'],
+                    'role' => $user['role'],
+                    'name' => $user['first_name'] . ' ' . $user['last_name'],
+                    'must_change_password' => (int)$user['must_change_password']
+                ];
 
+                // Force password change flow
                 if ($_SESSION['must_change_password'] === 1) {
                     header("Location: /change_password.php");
                     exit();

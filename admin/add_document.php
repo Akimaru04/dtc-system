@@ -1,37 +1,15 @@
 <?php
 session_start();
 
-include('../config/connect.php');
-include('../middleware/auth.php');
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
+
+require_once('../middleware/auth.php');
+require_once('../includes/csrf.php');
+require_once('../includes/flash.php'); // ✅ ADD THIS
 
 $user = require_role(['admin']);
 enforce_password_change($user);
-
-$message = "";
-
-/*
-|--------------------------------------------------------------------------
-| CSRF PROTECTION
-|--------------------------------------------------------------------------
-*/
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-function csrf_field() {
-    return '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
-}
-
-function verify_csrf() {
-
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
-    ) {
-        die("CSRF validation failed.");
-    }
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -46,25 +24,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description   = trim($_POST['description'] ?? '');
 
     if ($document_name === '') {
-        $message = "Document name is required.";
+
+        set_flash("error", "Document name is required.");
+        header("Location: add_document.php");
+        exit();
 
     } else {
 
-        $stmt = $conn->prepare("
-            INSERT INTO document_types (document_name, description)
-            VALUES (?, ?)
+        /*
+        |--------------------------------------------------------------------------
+        | DUPLICATE CHECK
+        |--------------------------------------------------------------------------
+        */
+        $check = $conn->prepare("
+            SELECT id FROM document_types 
+            WHERE document_name = ? 
+            LIMIT 1
         ");
 
-        $stmt->bind_param("ss", $document_name, $description);
+        $check->bind_param("s", $document_name);
+        $check->execute();
+        $check->store_result();
 
-        if ($stmt->execute()) {
-            header("Location: document_types.php?success=1");
+        if ($check->num_rows > 0) {
+
+            set_flash("error", "Document already exists.");
+            header("Location: add_document.php");
             exit();
+
         } else {
-            $message = "Error: " . $stmt->error;
+
+            $stmt = $conn->prepare("
+                INSERT INTO document_types (document_name, description)
+                VALUES (?, ?)
+            ");
+
+            $stmt->bind_param("ss", $document_name, $description);
+
+            if ($stmt->execute()) {
+
+                set_flash("success", "Document added successfully.");
+                header("Location: document_types.php");
+                exit();
+
+            } else {
+
+                set_flash("error", "Database error: " . $stmt->error);
+                header("Location: add_document.php");
+                exit();
+            }
+
+            $stmt->close();
         }
 
-        $stmt->close();
+        $check->close();
     }
 }
 ?>
@@ -107,24 +120,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- FORM -->
     <div class="card">
 
-            <form method="POST" class="form-grid">
+        <form method="POST" class="form-grid">
 
-        <?= csrf_field() ?>
+            <?= csrf_field() ?>
 
-        <input type="text"
-            name="document_name"
-            placeholder="Document Name"
-            required>
+            <input type="text"
+                name="document_name"
+                placeholder="Document Name"
+                required>
 
-        <input type="text"
-            name="description"
-            placeholder="Description (optional)">
+            <input type="text"
+                name="description"
+                placeholder="Description (optional)">
 
-        <button type="submit" class="btn btn-primary">
-            Add Document
-        </button>
+            <button type="submit" class="btn btn-primary">
+                Add Document
+            </button>
 
-    </form>
+        </form>
 
     </div>
 

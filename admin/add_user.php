@@ -1,36 +1,15 @@
 <?php
 session_start();
 
-include(__DIR__ . '/../config/connect.php');
-include(__DIR__ . '/../middleware/auth.php');
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
 
+require_once(__DIR__ . '/../middleware/auth.php');
+require_once(__DIR__ . '/../includes/csrf.php');
+require_once(__DIR__ . '/../includes/flash.php'); // ✅ ADD FLASH
 
 $user = require_role(['admin']);
 
-/*
-|--------------------------------------------------------------------------
-| CSRF PROTECTION
-|--------------------------------------------------------------------------
-*/
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-
-function csrf_field() {
-    return '<input type="hidden" name="csrf_token" value="' . $_SESSION['csrf_token'] . '">';
-}
-
-function verify_csrf() {
-    if (
-        empty($_POST['csrf_token']) ||
-        empty($_SESSION['csrf_token']) ||
-        !hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])
-    ) {
-        die("CSRF validation failed.");
-    }
-}
-
-$message = "";
 $temp_password = "";
 
 /*
@@ -38,7 +17,7 @@ $temp_password = "";
 | ADD USER PROCESS
 |--------------------------------------------------------------------------
 */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_member'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     verify_csrf();
 
@@ -57,72 +36,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_member'])) {
     | VALIDATION
     |--------------------------------------------------------------------------
     */
-    if (!$student_number || !$first_name || !$last_name || !$email || !$role) {
-        $message = "Please fill in all required fields.";
+    if (
+        $student_number === '' ||
+        $first_name === '' ||
+        $last_name === '' ||
+        $email === '' ||
+        $contact_number === '' ||
+        $role === ''
+    ) {
+        set_flash("error", "Please fill in all required fields.");
+        header("Location: add_user.php");
+        exit();
 
     } elseif (!in_array($role, ['student', 'registrar', 'admin'], true)) {
-        $message = "Invalid role selected.";
+
+        set_flash("error", "Invalid role selected.");
+        header("Location: add_user.php");
+        exit();
 
     } else {
 
         /*
         |--------------------------------------------------------------------------
-        | AUTO FIX FIELDS
+        | DUPLICATE CHECK
         |--------------------------------------------------------------------------
         */
-        if ($role !== 'student') {
-            $course = "N/A";
-            $year_level = "N/A";
-        }
-
-        $middle_name = $middle_name !== '' ? $middle_name : "N/A";
-
-        /*
-        |--------------------------------------------------------------------------
-        | TEMP PASSWORD
-        |--------------------------------------------------------------------------
-        */
-        $temp_password_plain = bin2hex(random_bytes(4));
-        $hashed_password = password_hash($temp_password_plain, PASSWORD_DEFAULT);
-
-        $status = "active";
-        $must_change_password = 1;
-
-        /*
-        |--------------------------------------------------------------------------
-        | INSERT USER
-        |--------------------------------------------------------------------------
-        */
-        $stmt = $conn->prepare("
-            INSERT INTO users 
-            (student_number, first_name, last_name, middle_name, email, password, role, course, year_level, contact_number, account_status, must_change_password)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        $check = $conn->prepare("
+            SELECT user_id 
+            FROM users 
+            WHERE student_number = ? OR email = ?
+            LIMIT 1
         ");
 
-        $stmt->bind_param(
-            "sssssssssssi",
-            $student_number,
-            $first_name,
-            $last_name,
-            $middle_name,
-            $email,
-            $hashed_password,
-            $role,
-            $course,
-            $year_level,
-            $contact_number,
-            $status,
-            $must_change_password
-        );
+        $check->bind_param("ss", $student_number, $email);
+        $check->execute();
+        $check->store_result();
 
-        if ($stmt->execute()) {
-            $message = "User created successfully!";
-            $temp_password = $temp_password_plain;
+        if ($check->num_rows > 0) {
+
+            set_flash("error", "User already exists.");
+            header("Location: add_user.php");
+            exit();
+
         } else {
-            $message = "Error: " . $stmt->error;
+
+            /*
+            |--------------------------------------------------------------------------
+            | NORMALIZATION
+            |--------------------------------------------------------------------------
+            */
+            if ($role !== 'student') {
+                $course = "N/A";
+                $year_level = "N/A";
+            }
+
+            $middle_name = $middle_name !== '' ? $middle_name : "N/A";
+
+            /*
+            |--------------------------------------------------------------------------
+            | PASSWORD GENERATION
+            |--------------------------------------------------------------------------
+            */
+            $temp_password_plain = bin2hex(random_bytes(4));
+            $hashed_password = password_hash($temp_password_plain, PASSWORD_DEFAULT);
+
+            $status = "active";
+            $must_change_password = 1;
+
+            /*
+            |--------------------------------------------------------------------------
+            | INSERT USER
+            |--------------------------------------------------------------------------
+            */
+            $stmt = $conn->prepare("
+                INSERT INTO users 
+                (student_number, first_name, last_name, middle_name, email, password, role, course, year_level, contact_number, account_status, must_change_password)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+
+            $stmt->bind_param(
+                "sssssssssssi",
+                $student_number,
+                $first_name,
+                $last_name,
+                $middle_name,
+                $email,
+                $hashed_password,
+                $role,
+                $course,
+                $year_level,
+                $contact_number,
+                $status,
+                $must_change_password
+            );
+
+            if ($stmt->execute()) {
+
+                // ⚠️ TEMP PASSWORD MUST BE SHOWN ON SAME REQUEST (use session flash)
+                set_flash(
+                    "success",
+                    "User created successfully. Temporary password: " . $temp_password_plain
+                );
+
+                header("Location: add_user.php");
+                exit();
+
+            } else {
+
+                set_flash("error", "Database error: " . $stmt->error);
+                header("Location: add_user.php");
+                exit();
+            }
+
+            $stmt->close();
         }
 
-        $stmt->close();
+        $check->close();
     }
 }
 ?>
@@ -189,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_member'])) {
                 <option value="admin">Admin</option>
             </select>
 
-            <button type="submit" name="add_member" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary">
                 Create User
             </button>
 

@@ -1,9 +1,12 @@
 <?php
 session_start();
 
-include('../config/connect.php');
-include('../middleware/auth.php');
-include('../includes/csrf.php');
+require_once("../config/Database.php");
+$conn = Database::getInstance()->conn;
+
+require_once('../middleware/auth.php');
+require_once('../includes/csrf.php');
+require_once('../includes/flash.php'); // ✅ FIXED
 
 $user = require_role(['admin']);
 
@@ -15,7 +18,8 @@ $user = require_role(['admin']);
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 
 if (!$id) {
-    set_flash("Invalid user ID.", "error");
+
+    set_flash("error", "Invalid user ID.");
     header("Location: users.php");
     exit();
 }
@@ -28,10 +32,18 @@ $targetUser = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$targetUser) {
-    set_flash("User not found.", "error");
+
+    set_flash("error", "User not found.");
     header("Location: users.php");
     exit();
 }
+
+/*
+|--------------------------------------------------------------------------
+| SELF EDIT CHECK
+|--------------------------------------------------------------------------
+*/
+$is_self = ($targetUser['user_id'] == $_SESSION['user_id']);
 
 /*
 |--------------------------------------------------------------------------
@@ -40,7 +52,6 @@ if (!$targetUser) {
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // CSRF CHECK (USE YOUR CENTRAL FUNCTION)
     verify_csrf();
 
     $first_name = trim($_POST['first_name'] ?? '');
@@ -52,17 +63,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status     = $_POST['account_status'] ?? '';
 
     if (!$first_name || !$last_name || !$email || !$role) {
-        set_flash("Missing required fields.", "error");
+
+        set_flash("error", "Missing required fields.");
         header("Location: edit_user.php?id=$id");
         exit();
     }
 
-    // enforce rule
+    /*
+    |--------------------------------------------------------------------------
+    | EMAIL DUPLICATE CHECK
+    |--------------------------------------------------------------------------
+    */
+    $check = $conn->prepare("
+        SELECT user_id 
+        FROM users 
+        WHERE email = ? AND user_id != ?
+        LIMIT 1
+    ");
+
+    $check->bind_param("si", $email, $id);
+    $check->execute();
+    $check->store_result();
+
+    if ($check->num_rows > 0) {
+
+        set_flash("error", "Email already in use.");
+        header("Location: edit_user.php?id=$id");
+        exit();
+    }
+
+    $check->close();
+
+    /*
+    |--------------------------------------------------------------------------
+    | SELF-EDIT PROTECTION (FIXED SAFETY)
+    |--------------------------------------------------------------------------
+    */
+    if ($is_self) {
+        $role = $targetUser['role'];
+        $status = $targetUser['account_status'];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | AUTO RULES
+    |--------------------------------------------------------------------------
+    */
     if ($role !== 'student') {
         $course = "N/A";
         $year_level = "N/A";
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE QUERY
+    |--------------------------------------------------------------------------
+    */
     $stmt = $conn->prepare("
         UPDATE users
         SET first_name = ?,
@@ -88,12 +144,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if ($stmt->execute()) {
-        set_flash("User updated successfully.", "success");
+
+        set_flash("success", "User updated successfully.");
         header("Location: users.php");
+        exit();
+
+    } else {
+
+        set_flash("error", "Update failed: " . $stmt->error);
+        header("Location: edit_user.php?id=$id");
         exit();
     }
 
-    set_flash("Update failed.", "error");
     $stmt->close();
 }
 ?>
@@ -124,6 +186,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </a>
     </div>
 
+    <?php if ($is_self): ?>
+        <div class="card">
+            <div class="alert warning">
+                You are editing your own account. Role and status cannot be changed.
+            </div>
+        </div>
+    <?php endif; ?>
+
     <div class="card">
 
         <form method="POST" class="form-grid">
@@ -142,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    value="<?= htmlspecialchars($targetUser['email'] ?? '') ?>"
                    required>
 
-            <select name="role" required>
+            <select name="role" required <?= $is_self ? 'disabled' : '' ?>>
                 <option value="student" <?= ($targetUser['role'] ?? '') === 'student' ? 'selected' : '' ?>>Student</option>
                 <option value="registrar" <?= ($targetUser['role'] ?? '') === 'registrar' ? 'selected' : '' ?>>Registrar</option>
                 <option value="admin" <?= ($targetUser['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Admin</option>
@@ -154,7 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="text" name="year_level"
                    value="<?= htmlspecialchars($targetUser['year_level'] ?? '') ?>">
 
-            <select name="account_status">
+            <select name="account_status" <?= $is_self ? 'disabled' : '' ?>>
                 <option value="active" <?= ($targetUser['account_status'] ?? '') === 'active' ? 'selected' : '' ?>>Active</option>
                 <option value="inactive" <?= ($targetUser['account_status'] ?? '') === 'inactive' ? 'selected' : '' ?>>Inactive</option>
             </select>
